@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Filee SVG 版 · 开始使用</title>
+<style>body{font:17px/1.8 system-ui,sans-serif;max-width:800px;margin:48px auto;padding:0 24px;background:#faf9f5;color:#202622}h1{font-size:32px}h2{margin-top:32px}code{background:#e8ece6;padding:3px 7px;border-radius:5px;overflow-wrap:anywhere}.note{border-left:4px solid #618063;padding:12px 20px;background:#edf2e9}li{margin:10px 0}a{color:#355d45}</style>
+<h1>Filee SVG 版 · 开始使用</h1>
+<p>Windows x64 免安装包，内含运行库和 Chrome 扩展，无需另装 .NET。请先把整个 ZIP 解压到一个固定文件夹，不要直接在压缩包中运行。</p>
+<h2>1. 启动 Filee</h2>
+<p>双击同文件夹内的 <code>Filee.exe</code>。若已经运行其他版本，先从托盘退出旧版。保持普通权限运行，以便接收浏览器拖拽。</p>
+<h2>2. 首次加载 Chrome 扩展</h2>
+<p>双击 <code>Install-Chrome-Extension.cmd</code> 可打开说明、扩展文件夹和 Chrome 扩展管理页。此辅助入口不会静默安装扩展或修改浏览器策略。</p>
+<ol><li>在 Chrome 地址栏打开 <code>chrome://extensions</code>。</li>
+<li>开启“开发者模式”，点击“加载已解压的扩展程序”。这不是网页开发者面板。</li>
+<li>选择本包的 <code>browser-extension</code> 文件夹：<br><code id="folder">本包所在文件夹\browser-extension</code></li>
+<li>保留“所有网站”访问权限，然后刷新已经打开的网页。新页面会自动启用，无需逐站点击。</li></ol>
+<p class="note">首次加载需要你在 Chrome 中确认。扩展尚未上架 Chrome 商店；普通 Windows Chrome 不支持让 GitHub 下载包静默安装扩展。安装后不要移动或删除扩展文件夹。</p>
+<h2>3. 直接拖拽图案转换</h2>
+<p>按住 <strong>Ctrl</strong>，把鼠标移到网页 SVG 图案上，再拖入 Filee 圆环并选择 PNG 等格式。也可以选中完整 SVG 代码后按原方式拖拽。</p>
+<p>扩展会保留路径、常用样式、颜色和同页面引用定义。图片可保留透明背景；空 SVG 或全透明渲染会报错，不再显示为成功的空白图片。</p>
+<h2>范围与版本说明</h2>
+<p>支持普通 HTTP/HTTPS 顶层网页中的内嵌 SVG。Chrome 内部页面、商店页面、跨框架、封闭 Shadow DOM、外部图片/字体和动画不在支持范围内。普通文件转换无需扩展；部分其他格式依然需要在 Filee 中下载对应转换引擎。</p>
+<p>此 Fork 发行版未使用上游作者的代码签名。应用、引擎和扩展已做自动化验证；真实 Chrome 鼠标拖拽到 Filee 尚未完成验证，不宣称所有网站均已实测。</p>
+<p>版本、源码提交见 <code>BUILD-INFO.json</code>；文件校验见 <code>FILES-SHA256SUMS.txt</code>。</p>
+<p><a href="https://github.com/1644ye/Filee">源码与反馈</a> · <a href="https://developer.chrome.com/docs/extensions/how-to/distribute">Chrome 官方扩展分发说明</a></p>
+<script>if(location.protocol==='file:'){const folder=decodeURIComponent(new URL('browser-extension/',location.href).pathname).replace(/^\/([A-Za-z]:)/,'$1').replaceAll('/','\\');document.querySelector('#folder').textContent=folder;}</script>
+</html>
