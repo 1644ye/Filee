@@ -9,7 +9,7 @@
 //      (".html", ".php", no extension). The server's answer is checked again when downloading.
 //   5. Nothing else, but the drag carries the picture's pixels (a blob: address Filee can't fetch): those, as PNG.
 //
-// Plain text is never read: a selected address is text, not a file.
+// Selected SVG markup and inline SVG fragments are pictures too. Other plain text is not a file.
 
 using Filee.Core.Formats;
 
@@ -60,6 +60,9 @@ public static class BrowserDrag
         }
         if (handed.Count > 0)
             return handed;
+
+        if (InlineSvg.Read(content) is { } svg)
+            return [WebDropItem.FromBytes("image.svg", svg, BrowserDragFormats.Svg)];
 
         var picture = content.Picture is not null;
         var html = content.Text(BrowserDragFormats.Html) ?? content.Text(BrowserDragFormats.WindowsHtml) ?? content.Text(BrowserDragFormats.MacHtml);

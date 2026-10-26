@@ -88,7 +88,12 @@ decides what in the drag is a file:
 Rules, in order: files handed over with their bytes (never `.url` shortcuts or programs); a picture (an HTML fragment
 that is one `<img>` and no text, or a Firefox file promise); a `DownloadURL` a page sets; links only when the address
 ends in an extension Filee converts and isn't a web page (`.html`, `.php`, none); last, picture pixels for a `blob:`
-picture. Plain text is never read. `data:` addresses are decoded.
+picture. Complete SVG code selections, `image/svg+xml` / `public.svg-image` data and a single inline SVG in the
+dragged HTML fragment are also accepted (`InlineSvg`). They become `image.svg` through the same `WebDrop` pipeline,
+without changing the trigger gesture or donut. Missing SVG namespaces are added for standalone rendering; XML
+DTDs are prohibited and external entities are never resolved. Ordinary text, incomplete SVG, mixed selections and
+selections over 4 Mi characters are ignored. The browser must actually expose the SVG in its drag data; page styles
+and definitions outside the selection are not captured. `data:` addresses are decoded.
 
 Until the conversion runs, the files stand as **placeholders** (`WebDrop`): paths in `%TEMP%\Filee\web\<drop>\drop\<n>\`
 named like the file will be, so the donut picks the profile by extension without touching the network. No HEAD request

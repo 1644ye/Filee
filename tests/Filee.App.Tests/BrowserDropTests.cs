@@ -25,6 +25,32 @@ namespace Filee.App.Tests;
 
 public class BrowserDropTests
 {
+    [AvaloniaFact]
+    public void Selected_svg_code_and_inline_svg_are_offered_without_a_web_address()
+    {
+        TestServices.EnsureInitialized("en");
+        const string svg = "<svg width='20' height='20'><rect width='20' height='20' fill='red'/></svg>";
+        foreach (var item in new[]
+                 {
+                     DataTransferItem.CreateText(svg),
+                     Platform(BrowserDragFormats.WindowsHtml, "<!--StartFragment--><div>" + svg + "</div><!--EndFragment-->", utf16: false),
+                     Platform(BrowserDragFormats.Svg, svg, utf16: false),
+                 })
+        {
+            using var data = new DataTransfer();
+            data.Add(item);
+            Assert.True(DraggedFiles.Offered(data));
+            foreach (var forDrop in new[] { false, true })
+            {
+                var dragged = DraggedFiles.Read(data, forDrop);
+                using var web = dragged.Web;
+                Assert.NotNull(web);
+                Assert.Equal("image.svg", Path.GetFileName(Assert.Single(dragged.Files)));
+                Assert.False(File.Exists(dragged.Files[0]));
+            }
+        }
+    }
+
     /// <summary>A 1×1 PNG.</summary>
     private static readonly byte[] Png = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
@@ -233,6 +259,49 @@ public class BrowserDropTests
             Assert.Equal([output], Directory.GetFiles(folder)); // the original wasn't kept
             Assert.False(File.Exists(job.Files[0].SourcePath));
             Assert.True(dropFile.Disposed);
+        }
+        finally
+        {
+            radial.Close(animate: false);
+            Reset(store, folder);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Svg_selection_uses_the_existing_ctrl_drag_donut_and_conversion(bool rendered)
+    {
+        TestServices.EnsureInitialized("en");
+        var store = AppHost.Get<UserDataStore>();
+        var folder = UseFolder(store, saveOnlyConverted: true);
+        var radial = AppHost.Get<RadialController>();
+        var conversions = AppHost.Get<ConversionService>();
+        try
+        {
+            radial.ShowForDrag(500, 500);
+            var window = radial.Window!;
+            var root = window.FindControl<Panel>("Root")!;
+            var donut = window.DonutControl;
+            const string svg = "<svg width='20' height='20' viewBox='0 0 20 20'><rect width='20' height='20' fill='red'/></svg>";
+            using var data = new DataTransfer();
+            data.Add(rendered
+                ? Platform(BrowserDragFormats.WindowsHtml, "<!--StartFragment-->" + svg + "<!--EndFragment-->", utf16: false)
+                : DataTransferItem.CreateText(svg));
+            root.RaiseEvent(new DragEventArgs(DragDrop.DragEnterEvent, data, root, new Point(5, 5), KeyModifiers.Control));
+            Pump();
+            var model = AppHost.Get<RadialViewModel>();
+            Assert.Equal("image.svg", Path.GetFileName(Assert.Single(model.Files)));
+            var (at, preset) = FirstSlice(donut, model);
+            var before = conversions.Jobs.Count;
+            root.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, data, root, donut.TranslatePoint(at, root)!.Value, KeyModifiers.Control));
+            Assert.True(conversions.Jobs.Count > before, $"no conversion started for {preset}");
+            var job = WaitFor(conversions.Jobs[0]);
+            Assert.Equal(JobState.Completed, job.State);
+            var output = Assert.Single(job.Outputs);
+            Assert.Equal(folder, Path.GetDirectoryName(output));
+            Assert.True(new FileInfo(output).Length > 0);
+            Assert.Equal([output], Directory.GetFiles(folder));
         }
         finally
         {
