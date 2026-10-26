@@ -12,6 +12,24 @@ public class InlineSvgTests
         new() { Texts = new Dictionary<string, string> { [format] = text } };
 
     [Theory]
+    [InlineData("<svg width='1024' height='1024'/>")]
+    [InlineData("<svg><path/></svg>")]
+    [InlineData("<svg><defs><path d='M0 0L1 1'/></defs></svg>")]
+    public void Empty_svg_shells_do_not_become_blank_successful_conversions(string text) =>
+        Assert.Empty(InlineSvg.ReadMany(Drag(text)));
+
+    [Fact]
+    public void Empty_plain_text_does_not_hide_complete_html_drawing()
+    {
+        var content = new BrowserDragContent { Texts = new Dictionary<string, string>
+        {
+            [BrowserDragFormats.PlainText] = "<svg/>",
+            [BrowserDragFormats.Html] = "<svg width='20' height='20'><rect width='20' height='20'/></svg>",
+        }};
+        Assert.Single(InlineSvg.ReadMany(content));
+    }
+
+    [Theory]
     [InlineData(BrowserDragFormats.PlainText)]
     [InlineData(BrowserDragFormats.Svg)]
     [InlineData(BrowserDragFormats.MacSvg)]
@@ -61,7 +79,7 @@ public class InlineSvgTests
         var content = new BrowserDragContent
         {
             Files = [file],
-            Texts = new Dictionary<string, string> { [BrowserDragFormats.PlainText] = "<svg/>" },
+            Texts = new Dictionary<string, string> { [BrowserDragFormats.PlainText] = "<svg><rect width='1' height='1'/></svg>" },
         };
         Assert.Same(file, Assert.Single(BrowserDrag.Files(content)));
     }
@@ -81,12 +99,12 @@ public class InlineSvgTests
     }
 
     [Theory]
-    [InlineData("<p>Caption<svg><path/></svg></p>", 1)]
-    [InlineData("<svg><path/></svg><svg><path/></svg>", 2)]
-    [InlineData("<img src='other.png'><svg><path/></svg>", 1)]
-    [InlineData("<div><svg><svg/></svg><span>Caption</span><svg/><img src='x'><svg/></div>", 3)]
+    [InlineData("<p>Caption<svg><path d='M0 0L1 1'/></svg></p>", 1)]
+    [InlineData("<svg><path d='M0 0L1 1'/></svg><svg><path d='M0 0L1 1'/></svg>", 2)]
+    [InlineData("<img src='other.png'><svg><path d='M0 0L1 1'/></svg>", 1)]
+    [InlineData("<div><svg><svg><rect width='1' height='1'/></svg></svg><span>Caption</span><svg><rect width='1' height='1'/></svg><img src='x'><svg><rect width='1' height='1'/></svg></div>", 3)]
     [InlineData("<pre><span>&lt;svg</span>&gt;&lt;text&gt;A &amp;amp; B&lt;/text&gt;&lt;/svg&gt;</pre>", 1)]
-    [InlineData("<!--<svg/>--><script>let x = '<svg/>';</script><svg/>", 1)]
+    [InlineData("<!--<svg><rect width='1' height='1'/></svg>--><script>let x = '<svg><rect width='1' height='1'/></svg>';</script><svg><rect width='1' height='1'/></svg>", 1)]
     public void Complete_svgs_are_extracted_from_mixed_and_escaped_selections(string html, int count)
     {
         Assert.Equal(count, InlineSvg.ReadMany(Drag(html, BrowserDragFormats.Html)).Count);
@@ -99,8 +117,8 @@ public class InlineSvgTests
     [Fact]
     public void Incomplete_and_excessive_batches_are_ignored()
     {
-        Assert.Empty(InlineSvg.ReadMany(Drag("<svg/><svg>")));
-        Assert.Empty(InlineSvg.ReadMany(Drag(string.Concat(Enumerable.Repeat("<svg/>", 129)))));
+        Assert.Empty(InlineSvg.ReadMany(Drag("<svg><rect width='1' height='1'/></svg><svg>")));
+        Assert.Empty(InlineSvg.ReadMany(Drag(string.Concat(Enumerable.Repeat("<svg><rect width='1' height='1'/></svg>", 129)))));
     }
 
     [Fact]

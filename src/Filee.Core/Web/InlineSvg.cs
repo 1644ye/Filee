@@ -113,6 +113,12 @@ public static partial class InlineSvg
             if (document.Root is not { } root || root.Name.LocalName != "svg"
                 || (root.Name.NamespaceName.Length != 0 && root.Name.NamespaceName != SvgNamespace))
                 return null;
+            // Browser selections can contain only an empty SVG shell (for example a collapsed code node).
+            // Do not let that shell win over another drag format containing the actual drawing.
+            if (!root.Descendants().Any(e => IsDrawingElement(e)
+                    && !e.Ancestors().TakeWhile(a => a != root).Any(a =>
+                        a.Name.LocalName is "defs" or "symbol" or "clipPath" or "mask" or "pattern")))
+                return null;
             // HTML inline SVG often omits xmlns. Standalone converters need the SVG namespace.
             if (root.Name.NamespaceName.Length == 0)
             {
@@ -127,6 +133,16 @@ public static partial class InlineSvg
             return null;
         }
     }
+
+    private static bool IsDrawingElement(XElement element) => element.Name.LocalName switch
+    {
+        "path" => !string.IsNullOrWhiteSpace((string?)element.Attribute("d")),
+        "polyline" or "polygon" => !string.IsNullOrWhiteSpace((string?)element.Attribute("points")),
+        "text" => !string.IsNullOrWhiteSpace(element.Value),
+        "use" => element.Attributes().Any(a => a.Name.LocalName == "href" && !string.IsNullOrWhiteSpace(a.Value)),
+        "image" or "rect" or "circle" or "ellipse" or "line" or "foreignObject" => true,
+        _ => false,
+    };
 
     // Consume comments, CDATA and script/style text as whole tokens. Quoted '>' characters are not tag boundaries.
     [GeneratedRegex("""<!--.*?-->|<!\[CDATA\[.*?\]\]>|<script\b[^>]*>.*?</script\s*>|<style\b[^>]*>.*?</style\s*>|<(?<close>/)?(?<name>[A-Za-z_][\w:.-]*)(?=\s|/?>)(?:"[^"]*"|'[^']*'|[^'">])*>""",

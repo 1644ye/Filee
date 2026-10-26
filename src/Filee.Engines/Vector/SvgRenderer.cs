@@ -201,6 +201,16 @@ internal static class SvgRenderer
                 throw new InvalidOperationException("Could not read the rendered SVG.");
         }
         var pixels = straight.GetPixelSpan().ToArray();
+        var visible = false;
+        for (var offset = 3; offset < pixels.Length; offset += 4)
+        {
+            if (pixels[offset] == 0)
+                continue;
+            visible = true;
+            break;
+        }
+        if (!visible)
+            throw new InvalidDataException("The SVG rendered no visible content. Include the complete drawing, its referenced definitions and styles.");
 
         var image = new MagickImage();
         image.ReadPixels(pixels, new PixelReadSettings((uint)width, (uint)height, StorageType.Char, PixelMapping.RGBA));

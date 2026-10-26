@@ -93,7 +93,8 @@ dragged HTML fragment are also accepted (`InlineSvg`). They become `image.svg` t
 without changing the trigger gesture or donut. Missing SVG namespaces are added for standalone rendering; XML
 DTDs are prohibited and external entities are never resolved. Mixed selections yield their complete outer SVGs
 in order (up to 128), excluding surrounding text and raster images; escaped HTML code selections are decoded once.
-Nested SVG stays inside its parent. Ordinary text, incomplete SVG and
+Nested SVG stays inside its parent. Empty SVG shells do not hide complete drawings offered in other formats.
+Raster conversion reports an error if SVG rendering produces only transparent pixels. Ordinary text, incomplete SVG and
 selections over 4 Mi characters are ignored. The browser must actually expose the SVG in its drag data; page styles
 and definitions outside the selection are not captured. `data:` addresses are decoded.
 

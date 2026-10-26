@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Filee SVG Drag",
+  "version": "0.1.0",
+  "description": "Hold Ctrl and drag an inline SVG picture to Filee, preserving its drawing and styles.",
+  "permissions": ["activeTab", "scripting"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Enable Filee SVG drag on this site" }
+}
