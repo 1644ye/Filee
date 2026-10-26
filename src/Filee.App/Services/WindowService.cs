@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Filee.App.ViewModels;
 using Filee.App.Views;
 using Filee.Core.Conversion;
@@ -65,6 +66,27 @@ public sealed class WindowService(ILocalizer loc, IServiceProvider services, Mem
         dialog.Activate();
         await closed.Task;
         return dialog.Result;
+    }
+
+    public async Task<string?> ChooseDownloadFolderAsync(string startFolder)
+    {
+        var owner = new Window
+        {
+            Title = loc["preset.browser_download"], Width = 380, Height = 120,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+            Content = new TextBlock { Text = loc["general.download.Ask"], Margin = new Thickness(24) },
+        };
+        PrepareWindow(owner);
+        owner.Show();
+        owner.Activate();
+        try
+        {
+            var start = await owner.StorageProvider.TryGetFolderFromPathAsync(startFolder);
+            var folders = await owner.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            { Title = loc["general.download.Ask"], AllowMultiple = false, SuggestedStartLocation = start });
+            return folders.FirstOrDefault()?.TryGetLocalPath();
+        }
+        finally { owner.Close(); }
     }
 
     public MainWindow? Main => _main;

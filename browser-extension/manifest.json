@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Filee SVG Drag",
-  "version": "0.2.0",
-  "description": "Hold Ctrl and drag an inline SVG picture to Filee, preserving its drawing and styles.",
+  "version": "0.3.0",
+  "description": "Hold Ctrl and drag website pictures or inline SVG to Filee to download or convert them.",
   "permissions": ["scripting"],
   "host_permissions": ["https://*/*", "http://*/*"],
   "content_scripts": [{

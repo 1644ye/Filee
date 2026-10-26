@@ -1,20 +1,20 @@
 # Filee SVG Drag (Chrome)
 
-Companion to Filee's Ctrl-drag conversion. Websites often use inline SVG elements that are not natively
-draggable. This extension prepares a standalone SVG under the pointer while Ctrl is held, then lets Chrome
-perform a normal image drag. Filee's donut, presets and output settings are unchanged.
+Companion to Filee's Ctrl-drag conversion. It supports ordinary pictures, linked image cards, and inline SVG elements. Hold Ctrl to prepare the pointed picture for a native image drag. For ordinary images it uses the highest-resolution URL supplied in the image's srcset, keeping URL parameters intact. SVG is serialized with its drawing and styles.
 
 ## Install and use
 
 1. Open `chrome://extensions`, enable Developer mode, and choose **Load unpacked**.
 2. Select this `browser-extension` directory. Keep it in place while the extension is installed.
 3. Allow the extension to run on all websites. It activates automatically on HTTP and HTTPS pages.
-4. Hold **Ctrl**, move onto an SVG picture and drag it into Filee's conversion ring.
+4. Hold **Ctrl**, move onto a picture or SVG and drag it into Filee's conversion ring.
 
 After updating, reload the extension in `chrome://extensions` and accept Chrome's expanded site-access prompt
 if shown. Refresh already-open webpages, or click **Filee SVG Drag** once to activate the current tab.
 No per-site activation is needed. Chrome internal pages and the Web Store cannot be enabled.
 Remove the extension in `chrome://extensions` to uninstall it.
+
+Choose **Download** in the ring to save without conversion, or select a conversion format as before. In Settings > General > Download save location, choose the system Downloads folder, a specified folder, or a folder picker for each download. Cancelling the picker saves nothing. Download keeps the file even when Save only converted files is enabled.
 
 ## What is preserved
 
@@ -32,11 +32,11 @@ reconstructed from an empty tag.
 No server, downloads, clipboard access, native messaging or background page scraping. The extension has
 access to all HTTP(S) websites and automatically installs its drag listener in each top-level page.
 `scripting` also supports already-open tabs and removes old per-site registrations during an update.
-It reads the pointed SVG, computed styles
+It reads the pointed image URL, or SVG computed styles
 and referenced definitions only when Ctrl is held. It transfers them locally through native drag data.
 
 ## Regression checks
 
-Serve the repository root over localhost and open `tests/browser-extension/svg-drag.html` in a browser.
+Serve the repository root over localhost and open `tests/browser-extension/svg-drag.html` and `tests/browser-extension/image-drag.html` in a browser.
 The page exercises the production script with inherited styles, referenced definitions, drag formats and
 cleanup. A native Chrome-to-Filee drag is a separate integration check.

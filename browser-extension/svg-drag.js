@@ -8,7 +8,23 @@
     "stroke-dashoffset", "opacity", "visibility", "display", "clip-path", "clip-rule", "mask",
     "filter", "paint-order", "vector-effect", "font-family", "font-size", "font-style", "font-weight",
     "text-anchor", "dominant-baseline", "letter-spacing", "word-spacing", "stop-color", "stop-opacity"];
-  let overlay, original, prepared, pressed = false, dragging = false, pointer;
+  let overlay, original, prepared, imageUrl, pressed = false, dragging = false, pointer;
+
+  function pictureAddress(image) {
+    // Use only URLs the page actually supplies. Keep query strings, signatures and format parameters intact.
+    const candidates = [];
+    for (const entry of (image.getAttribute("srcset") || "").split(",")) {
+      const match = entry.trim().match(/^(\S+)\s+(\d+(?:\.\d+)?)(w|x)$/);
+      if (match) candidates.push({ url: match[1], score: Number(match[2]) * (match[3] === "x" ? image.clientWidth : 1) });
+    }
+    const current = image.currentSrc || image.src;
+    candidates.push({ url: current, score: image.naturalWidth || 0 });
+    for (const candidate of candidates.sort((a, b) => b.score - a.score)) {
+      const url = new URL(candidate.url, image.baseURI);
+      if (/^https?:$/.test(url.protocol) || url.protocol === "data:" && /^data:image\//i.test(url.href)) return url.href;
+    }
+    throw new Error("This picture does not expose a downloadable image URL.");
+  }
 
   function snapshot(svg) {
     const copy = svg.cloneNode(true);
@@ -82,7 +98,7 @@
   }
 
   function clear() {
-    overlay?.remove(); overlay = original = prepared = null; pressed = dragging = false;
+    overlay?.remove(); overlay = original = prepared = imageUrl = null; pressed = dragging = false;
   }
   function arm(x, y) {
     if (dragging || pressed) return;
@@ -91,19 +107,32 @@
     if (overlay) overlay.style.pointerEvents = "auto";
     let svg = hit?.closest("svg");
     while (svg?.parentElement?.closest("svg")) svg = svg.parentElement.closest("svg");
-    if (svg === original) return;
+    let picture = hit?.closest("img");
+    if (!svg && !picture) {
+      const card = hit?.closest("a");
+      const images = card?.querySelectorAll("img");
+      if (images?.length === 1) {
+        const bounds = images[0].getBoundingClientRect();
+        if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom) picture = images[0];
+      }
+    }
+    const target = svg || picture;
+    if (target === original) return;
     clear();
-    if (!svg) return;
-    const box = svg.getBoundingClientRect();
+    if (!target) return;
+    const box = target.getBoundingClientRect();
     if (box.width <= 0 || box.height <= 0) return;
-    try { prepared = snapshot(svg); }
+    try {
+      if (svg) prepared = snapshot(svg);
+      else imageUrl = pictureAddress(picture);
+    }
     catch (error) { console.warn("Filee SVG drag:", error.message); return; }
-    original = svg;
+    original = target;
     const image = document.createElement("img");
     image.alt = "";
     image.setAttribute("aria-hidden", "true");
     image.draggable = true;
-    image.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(prepared);
+    image.src = imageUrl || "data:image/svg+xml;charset=utf-8," + encodeURIComponent(prepared);
     image.title = "Ctrl + drag to Filee";
     image.style.cssText = `position:fixed!important;left:${box.left}px!important;top:${box.top}px!important;` +
       `width:${box.width}px!important;height:${box.height}px!important;margin:0!important;padding:0!important;` +
@@ -111,15 +140,23 @@
       "opacity:0.01!important;cursor:grab!important;pointer-events:auto!important;user-select:none!important;";
     image.addEventListener("mousedown", event => { pressed = event.ctrlKey; });
     image.addEventListener("dragstart", event => {
-      if (!event.ctrlKey || !prepared || !event.dataTransfer) { event.preventDefault(); clear(); return; }
+      if (!event.ctrlKey || !(prepared || imageUrl) || !event.dataTransfer) { event.preventDefault(); clear(); return; }
       dragging = true;
       event.stopImmediatePropagation();
       event.dataTransfer.clearData();
       event.dataTransfer.effectAllowed = "copy";
-      event.dataTransfer.setData("image/svg+xml", prepared);
-      event.dataTransfer.setData("text/plain", prepared);
-      event.dataTransfer.setData("text/html", prepared);
-      event.dataTransfer.setData("DownloadURL", "image/svg+xml:image.svg:" + image.src);
+      if (prepared) {
+        event.dataTransfer.setData("image/svg+xml", prepared);
+        event.dataTransfer.setData("text/plain", prepared);
+        event.dataTransfer.setData("text/html", prepared);
+        event.dataTransfer.setData("DownloadURL", "image/svg+xml:image.svg:" + image.src);
+      } else {
+        const standalone = document.createElement("img");
+        standalone.src = imageUrl;
+        event.dataTransfer.setData("text/html", standalone.outerHTML);
+        event.dataTransfer.setData("text/uri-list", imageUrl);
+        event.dataTransfer.setData("text/plain", imageUrl);
+      }
       event.dataTransfer.setDragImage(original, 0, 0);
     });
     image.addEventListener("dragend", clear);

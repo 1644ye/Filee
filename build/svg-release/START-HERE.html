@@ -14,10 +14,12 @@
 <li>保留“所有网站”访问权限，然后刷新已经打开的网页。新页面会自动启用，无需逐站点击。</li></ol>
 <p class="note">首次加载需要你在 Chrome 中确认。扩展尚未上架 Chrome 商店；普通 Windows Chrome 不支持让 GitHub 下载包静默安装扩展。安装后不要移动或删除扩展文件夹。</p>
 <h2>3. 直接拖拽图案转换</h2>
-<p>按住 <strong>Ctrl</strong>，把鼠标移到网页 SVG 图案上，再拖入 Filee 圆环并选择 PNG 等格式。也可以选中完整 SVG 代码后按原方式拖拽。</p>
+<p>按住 <strong>Ctrl</strong>，把鼠标移到网页图片或 SVG 图案上，再拖入 Filee 圆环并选择 PNG 等格式。也可以选中完整 SVG 代码后按原方式拖拽。</p>
 <p>扩展会保留路径、常用样式、颜色和同页面引用定义。图片可保留透明背景；空 SVG 或全透明渲染会报错，不再显示为成功的空白图片。</p>
+<p>选择圆盘中的<strong>下载</strong>可直接保存图片，不重新编码。普通图片优先使用网页明确提供的最高分辨率版本。</p>
+<p>在<strong>设置 → 常规 → 圆盘下载保存位置</strong>中，可选择“每次选择位置”“默认保存（系统下载文件夹）”或“指定文件夹”。取消位置选择不会下载；“仅保存转换后文件”不影响下载。更新后请在 Chrome 扩展页重新加载扩展并刷新网页。</p>
 <h2>范围与版本说明</h2>
-<p>支持普通 HTTP/HTTPS 顶层网页中的内嵌 SVG。Chrome 内部页面、商店页面、跨框架、封闭 Shadow DOM、外部图片/字体和动画不在支持范围内。普通文件转换无需扩展；部分其他格式依然需要在 Filee 中下载对应转换引擎。</p>
+<p>支持普通 HTTP/HTTPS 顶层网页中的普通图片和内嵌 SVG。Chrome 内部页面、商店页面、跨框架、封闭 Shadow DOM、SVG 引用的外部图片/字体和动画不在支持范围内。普通文件转换无需扩展；部分其他格式依然需要在 Filee 中下载对应转换引擎。</p>
 <p>此 Fork 发行版未使用上游作者的代码签名。应用、引擎和扩展已做自动化验证；真实 Chrome 鼠标拖拽到 Filee 尚未完成验证，不宣称所有网站均已实测。</p>
 <p>版本、源码提交见 <code>BUILD-INFO.json</code>；文件校验见 <code>FILES-SHA256SUMS.txt</code>。</p>
 <p><a href="https://github.com/1644ye/Filee">源码与反馈</a> · <a href="https://developer.chrome.com/docs/extensions/how-to/distribute">Chrome 官方扩展分发说明</a></p>

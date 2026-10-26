@@ -66,9 +66,9 @@ public sealed class ConversionService
     /// General names for files from a browser. The job owns it from now on (disposed here when nothing starts).
     /// </param>
     /// <returns>The job's view model, or null when there was nothing to convert.</returns>
-    public JobViewModel? Start(IReadOnlyList<string> files, Preset preset, bool showInToast = true, WebDrop? web = null)
+    public JobViewModel? Start(IReadOnlyList<string> files, Preset preset, bool showInToast = true, WebDrop? web = null, string? downloadFolder = null)
     {
-        if (files.Count == 0 || preset.IsGroup || preset.IsTool)
+        if (files.Count == 0 || preset.IsGroup || preset.IsTool || preset.IsDownload && (web is null || DownloadNeedsPicker && string.IsNullOrWhiteSpace(downloadFolder)))
         {
             web?.Dispose();
             return null;
@@ -78,7 +78,10 @@ public sealed class ConversionService
         WebDropFetcher? fetcher = null;
         if (web is not null)
         {
-            fetcher = web.CreateFetcher(BrowserDropOptions(), _downloader);
+            var options = BrowserDropOptions();
+            if (preset.IsDownload)
+                options = options with { SaveOnlyConverted = false, Folder = downloadFolder ?? DownloadFolderInUse };
+            fetcher = web.CreateFetcher(options, _downloader);
             // "Next to the source" is the download folder, also when the original is only kept until converted.
             preset = fetcher.Apply(preset);
         }
@@ -158,6 +161,28 @@ public sealed class ConversionService
         var settings = _store.Settings.BrowserDrops;
         var folder = string.IsNullOrWhiteSpace(settings.Folder) ? _platform.DownloadsFolder : settings.Folder.Trim();
         return new WebDropOptions(folder, settings.SaveOnlyConverted);
+    }
+
+    public bool DownloadNeedsPicker => _store.Settings.BrowserDrops.DownloadLocation == DownloadLocation.Ask
+        || _store.Settings.BrowserDrops.DownloadLocation == DownloadLocation.Custom
+        && string.IsNullOrWhiteSpace(_store.Settings.BrowserDrops.DownloadFolder);
+
+    public string DownloadFolderInUse => _store.Settings.BrowserDrops.DownloadLocation == DownloadLocation.Custom
+        && !string.IsNullOrWhiteSpace(_store.Settings.BrowserDrops.DownloadFolder)
+        ? _store.Settings.BrowserDrops.DownloadFolder.Trim() : _platform.DownloadsFolder;
+
+    internal async Task<JobViewModel?> ChooseDownloadAsync(IReadOnlyList<string> files, Preset preset, WebDrop web,
+        Func<string, Task<string?>> chooseFolder)
+    {
+        try
+        {
+            var folder = await chooseFolder(DownloadFolderInUse);
+            if (string.IsNullOrWhiteSpace(folder)) return null;
+            var job = Start(files, preset, web: web, downloadFolder: folder);
+            web = null!; // Start owns or disposes it.
+            return job;
+        }
+        finally { web?.Dispose(); }
     }
 
     /// <summary>True when a source file (or folder) is still where it was.</summary>

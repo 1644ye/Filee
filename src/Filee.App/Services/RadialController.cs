@@ -327,6 +327,13 @@ public sealed class RadialController(
             return;
         }
 
+        if (preset.IsDownload && web is not null && conversions.DownloadNeedsPicker)
+        {
+            Close(animate: false);
+            _ = DownloadInFolderAsync(sources, preset.Clone(), web);
+            return;
+        }
+
         if (preset.IsTool)
         {
             var near = _window?.Position;
@@ -356,6 +363,13 @@ public sealed class RadialController(
         }
         _converted = true;
         ShowProgress(job);
+    }
+
+    private async Task DownloadInFolderAsync(IReadOnlyList<string> files, Preset preset, WebDrop web)
+    {
+        try { await conversions.ChooseDownloadAsync(files, preset, web, windows.ChooseDownloadFolderAsync); }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        { log.LogError(ex, "Could not choose the download folder"); }
     }
 
     private async Task MergeInOrderAsync(IReadOnlyList<string> files, Preset preset, WebDrop? web)

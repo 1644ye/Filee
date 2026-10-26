@@ -1,0 +1,20 @@
+<!doctype html><meta charset="utf-8"><title>Filee picture drag tests</title>
+<style>a{display:block;width:110px}img{width:100px;height:100px}#card{position:relative}.cover{position:absolute;inset:0 0 30px 0}#results{white-space:pre-wrap}</style>
+<a id="card" href="/collections/travel-bags"><img src="pixel.png?width=350" srcset="pixel.png?width=400 400w, pixel.png?width=900 900w"><div class="cover"></div><span>For Vacations</span></a>
+<script src="../../browser-extension/svg-drag.js"></script><pre id="results"></pre>
+<script>
+window.addEventListener('load',()=>{
+ const results=[];const check=(ok,name)=>{results.push({name,pass:!!ok});if(!ok)throw Error(name)};
+ try{
+ const original=document.querySelector('#card img');const b=original.getBoundingClientRect();
+ document.dispatchEvent(new MouseEvent('mousemove',{clientX:b.x+20,clientY:b.y+20,ctrlKey:true,bubbles:true}));
+ const overlay=document.querySelector('img[title="Ctrl + drag to Filee"]');check(overlay?.draggable,'covered linked picture becomes draggable');
+ const data=new DataTransfer();overlay.dispatchEvent(new DragEvent('dragstart',{dataTransfer:data,ctrlKey:true,bubbles:true}));
+ check(data.getData('text/uri-list')===new URL('pixel.png?width=900',location.href).href,'highest provided resolution selected');
+ check(data.getData('text/html').includes('width=900')&&!data.getData('text/html').includes('collections'),'picture URL replaces card destination');
+ check(!data.getData('image/svg+xml'),'raster is not misidentified as SVG');
+ overlay.dispatchEvent(new DragEvent('dragend',{bubbles:true}));check(!document.querySelector('img[title="Ctrl + drag to Filee"]'),'overlay removed');
+ const t=document.querySelector('#card span').getBoundingClientRect();document.dispatchEvent(new MouseEvent('mousemove',{clientX:t.x+10,clientY:t.y+5,ctrlKey:true,bubbles:true}));check(!document.querySelector('img[title="Ctrl + drag to Filee"]'),'card caption not intercepted');
+ }catch(e){results.push({error:e.message})}document.querySelector('#results').textContent=JSON.stringify(results,null,2);
+});
+</script>
