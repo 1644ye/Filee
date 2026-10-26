@@ -8,11 +8,12 @@ perform a normal image drag. Filee's donut, presets and output settings are unch
 
 1. Open `chrome://extensions`, enable Developer mode, and choose **Load unpacked**.
 2. Select this `browser-extension` directory. Keep it in place while the extension is installed.
-3. Open the website, click **Filee SVG Drag** in Chrome's extensions menu, and approve access to that site.
+3. Allow the extension to run on all websites. It activates automatically on HTTP and HTTPS pages.
 4. Hold **Ctrl**, move onto an SVG picture and drag it into Filee's conversion ring.
 
-Enabling a site is a one-time action. Registered content scripts persist across browser restarts. Reload
-other tabs that were already open on that site. Chrome internal pages and the Web Store cannot be enabled.
+After updating, reload the extension in `chrome://extensions` and accept Chrome's expanded site-access prompt
+if shown. Refresh already-open webpages, or click **Filee SVG Drag** once to activate the current tab.
+No per-site activation is needed. Chrome internal pages and the Web Store cannot be enabled.
 Remove the extension in `chrome://extensions` to uninstall it.
 
 ## What is preserved
@@ -28,9 +29,10 @@ reconstructed from an empty tag.
 
 ## Permissions and data
 
-No server, downloads, clipboard access, native messaging or background page scraping. The extension requests
-only the current HTTP(S) origin when its toolbar button is clicked. `activeTab` and `scripting` enable injection
-on that site; optional host access keeps it enabled on later visits. It reads the pointed SVG, computed styles
+No server, downloads, clipboard access, native messaging or background page scraping. The extension has
+access to all HTTP(S) websites and automatically installs its drag listener in each top-level page.
+`scripting` also supports already-open tabs and removes old per-site registrations during an update.
+It reads the pointed SVG, computed styles
 and referenced definitions only when Ctrl is held. It transfers them locally through native drag data.
 
 ## Regression checks
