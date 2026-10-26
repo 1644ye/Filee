@@ -761,7 +761,7 @@ public sealed partial class DonutMenu : Control
                 _shownExpanded = -1;
             active |= StepProgress(dt);
             active |= StepLayout(dt);
-            active |= StepFlip(dt);
+            active |= StepFlip(elapsed ?? dt);
 
             if (_openClock < double.MaxValue)
             {
@@ -907,7 +907,7 @@ public sealed partial class DonutMenu : Control
                 if (SliceFlipWidth(true, i) == 0 || slice.Open <= 0.001)
                     continue;
                 var offset = DonutGeometry.PointAt(new Point(0, 0), slice.Hover * PopOut, slice.Mid);
-                var scale = 0.55 + 0.45 * slice.Open;
+                var scale = 0.78 + 0.22 * slice.Open;
                 var rotate = (1 - Math.Min(slice.Open, 1)) * -0.12;
                 var transform = Matrix.CreateTranslation(-center.X, -center.Y) * Matrix.CreateRotation(rotate) *
                                 Matrix.CreateScale(scale * (1 + slice.Hover * 0.025), scale * (1 + slice.Hover * 0.025)) *

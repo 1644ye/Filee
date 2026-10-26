@@ -69,4 +69,32 @@ public class DonutAnimationTests
         Assert.InRange(cache.Count, 1, 512);
     }
 
+    [AvaloniaFact]
+    public void Flip_during_opening_does_not_restart_opening_on_the_new_face()
+    {
+        TestServices.EnsureInitialized("en"); var previous = Motion.Enabled;
+        try
+        {
+            Motion.Set(true); var donut = Menu(); donut.CanFlip = true;
+            donut.FaceSwapping += (_, _) => donut.Items = Menu().Items;
+            donut.PlayOpenAnimation(); donut.Advance(0.04); donut.Flip(); donut.Advance(0.01);
+            Assert.All(Open(donut), value => Assert.Equal(1, value));
+        }
+        finally { Motion.Set(previous); }
+    }
+
+    [AvaloniaFact]
+    public void Late_frame_completes_both_queued_turns_without_stretching_time()
+    {
+        TestServices.EnsureInitialized("en"); var previous = Motion.Enabled;
+        try
+        {
+            Motion.Set(true); var donut = Menu(); donut.CanFlip = true; var turns = 0;
+            donut.FaceSwapping += (_, _) => { turns++; donut.Items = Menu().Items; };
+            donut.Flip(); donut.Flip(); donut.Advance(0.05, DonutMenu.FlipDuration * 2 + 0.001);
+            Assert.False(donut.IsFlipping); Assert.Equal(2, turns);
+        }
+        finally { Motion.Set(previous); }
+    }
+
 }
