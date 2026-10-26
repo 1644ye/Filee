@@ -71,7 +71,6 @@ public class InlineSvgTests
     [InlineData("https://example.com/image.svg")]
     [InlineData("<svg><path></svg>")]
     [InlineData("<svg/ ><p>text</p>")]
-    [InlineData("<svg/><svg/>")]
     [InlineData("<svg xmlns='urn:not-svg'/>")]
     [InlineData("<!DOCTYPE svg [<!ENTITY x SYSTEM 'file:///not-read'>]><svg>&x;</svg>")]
     [InlineData("<html><body>text</body></html>")]
@@ -82,11 +81,27 @@ public class InlineSvgTests
     }
 
     [Theory]
-    [InlineData("<p>Caption<svg><path/></svg></p>")]
-    [InlineData("<svg><path/></svg><svg><path/></svg>")]
-    [InlineData("<img src='other.png'><svg><path/></svg>")]
-    public void A_mixed_html_selection_is_not_one_picture(string html) =>
-        Assert.Null(InlineSvg.Read(Drag(html, BrowserDragFormats.Html)));
+    [InlineData("<p>Caption<svg><path/></svg></p>", 1)]
+    [InlineData("<svg><path/></svg><svg><path/></svg>", 2)]
+    [InlineData("<img src='other.png'><svg><path/></svg>", 1)]
+    [InlineData("<div><svg><svg/></svg><span>Caption</span><svg/><img src='x'><svg/></div>", 3)]
+    [InlineData("<pre><span>&lt;svg</span>&gt;&lt;text&gt;A &amp;amp; B&lt;/text&gt;&lt;/svg&gt;</pre>", 1)]
+    [InlineData("<!--<svg/>--><script>let x = '<svg/>';</script><svg/>", 1)]
+    public void Complete_svgs_are_extracted_from_mixed_and_escaped_selections(string html, int count)
+    {
+        Assert.Equal(count, InlineSvg.ReadMany(Drag(html, BrowserDragFormats.Html)).Count);
+        var files = BrowserDrag.Files(Drag(html));
+        Assert.Equal(count, files.Count);
+        Assert.Equal(count, files.Select(f => f.Name).Distinct().Count());
+        foreach (var file in files) file.Dispose();
+    }
+
+    [Fact]
+    public void Incomplete_and_excessive_batches_are_ignored()
+    {
+        Assert.Empty(InlineSvg.ReadMany(Drag("<svg/><svg>")));
+        Assert.Empty(InlineSvg.ReadMany(Drag(string.Concat(Enumerable.Repeat("<svg/>", 129)))));
+    }
 
     [Fact]
     public void Oversized_selection_is_ignored() =>

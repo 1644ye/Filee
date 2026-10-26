@@ -61,8 +61,10 @@ public static class BrowserDrag
         if (handed.Count > 0)
             return handed;
 
-        if (InlineSvg.Read(content) is { } svg)
-            return [WebDropItem.FromBytes("image.svg", svg, BrowserDragFormats.Svg)];
+        var svgs = InlineSvg.ReadMany(content);
+        if (svgs.Count > 0)
+            return svgs.Select((svg, index) => WebDropItem.FromBytes(
+                svgs.Count == 1 ? "image.svg" : $"image-{index + 1}.svg", svg, BrowserDragFormats.Svg)).ToList();
 
         var picture = content.Picture is not null;
         var html = content.Text(BrowserDragFormats.Html) ?? content.Text(BrowserDragFormats.WindowsHtml) ?? content.Text(BrowserDragFormats.MacHtml);

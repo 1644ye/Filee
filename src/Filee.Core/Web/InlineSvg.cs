@@ -14,53 +14,83 @@ public static partial class InlineSvg
     public const int MaxCharacters = 4 * 1024 * 1024;
     private const string SvgNamespace = "http://www.w3.org/2000/svg";
 
-    /// <summary>A complete SVG from the drag, encoded as a standalone UTF-8 file, or null.</summary>
+    /// <summary>The single SVG of a selection, or null when it contains none or several.</summary>
     public static byte[]? Read(BrowserDragContent content)
     {
-        foreach (var format in new[] { BrowserDragFormats.Svg, BrowserDragFormats.MacSvg, BrowserDragFormats.PlainText })
-        {
-            if (Parse(content.Text(format)) is { } svg)
-                return svg;
-        }
-        foreach (var format in new[] { BrowserDragFormats.Html, BrowserDragFormats.WindowsHtml, BrowserDragFormats.MacHtml })
-        {
-            if (FromHtml(content.Text(format)) is { } svg)
-                return svg;
-        }
-        return null;
+        var pictures = ReadMany(content);
+        return pictures.Count == 1 ? pictures[0] : null;
     }
 
-    private static byte[]? FromHtml(string? html)
+    /// <summary>Complete outer SVG elements, in selection order, without surrounding page text or images.</summary>
+    public static IReadOnlyList<byte[]> ReadMany(BrowserDragContent content)
+    {
+        foreach (var format in new[] { BrowserDragFormats.Svg, BrowserDragFormats.MacSvg, BrowserDragFormats.PlainText,
+                     BrowserDragFormats.Html, BrowserDragFormats.WindowsHtml, BrowserDragFormats.MacHtml })
+        {
+            var pictures = FromSelection(content.Text(format));
+            if (pictures.Count > 0)
+                return pictures;
+        }
+        return [];
+    }
+
+    private static IReadOnlyList<byte[]> FromSelection(string? html)
     {
         if (string.IsNullOrWhiteSpace(html) || html.Length > MaxCharacters)
-            return null;
+            return [];
         var start = html.IndexOf("<!--StartFragment-->", StringComparison.OrdinalIgnoreCase);
         var end = html.IndexOf("<!--EndFragment-->", StringComparison.OrdinalIgnoreCase);
         if (start >= 0 && end > start)
             html = html[(start + "<!--StartFragment-->".Length)..end];
-        if (Parse(html) is { } document)
-            return document;
         try
         {
-            var opening = SvgStart().Match(html);
-            var endings = SvgEnd().Matches(html);
-            if (!opening.Success || endings.Count == 0)
-                return null;
-            var last = endings[^1];
-            var after = last.Index + last.Length;
-            if (after <= opening.Index)
-                return null;
-            // Browser selections may wrap the graphic in a link or layout element. Text or other pictures outside
-            // it mean a mixed selection, not one SVG. SVG's own <text>, <title>, styles and nested SVG stay intact.
-            var outside = html[..opening.Index] + html[after..];
-            if (WebUtility.HtmlDecode(Wrappers().Replace(outside, "")).Any(c => !char.IsWhiteSpace(c)))
-                return null;
-            return Parse(html[opening.Index..after]);
+            var pictures = Extract(html);
+            if (pictures.Count > 0)
+                return pictures;
+            // Code selections may arrive only as escaped HTML, with syntax-highlighting spans between tokens.
+            // Decode once, after removing the presentation markup, so XML entities inside SVG stay XML entities.
+            var code = WebUtility.HtmlDecode(Markup().Replace(html, ""));
+            return code == html ? [] : Extract(code);
         }
         catch (RegexMatchTimeoutException)
         {
-            return null;
+            return [];
         }
+    }
+
+    private static IReadOnlyList<byte[]> Extract(string source)
+    {
+        if (source.Contains("<!DOCTYPE", StringComparison.OrdinalIgnoreCase))
+            return [];
+        if (Parse(source) is { } document)
+            return [document];
+        var pictures = new List<byte[]>();
+        var depth = 0;
+        var start = 0;
+        foreach (Match token in Markup().Matches(source))
+        {
+            if (token.Groups["name"].Value != "svg")
+                continue;
+            var closing = token.Groups["close"].Success;
+            var empty = token.Value.EndsWith("/>", StringComparison.Ordinal);
+            if (!closing)
+            {
+                if (depth == 0)
+                    start = token.Index;
+                depth++;
+            }
+            else if (depth == 0)
+                return [];
+            if (closing || empty)
+                depth--;
+            if (depth != 0)
+                continue;
+            // Nested SVG remains part of its parent; siblings become separate files with distinct names.
+            if (Parse(source[start..(token.Index + token.Length)]) is not { } svg || pictures.Count >= 128)
+                return [];
+            pictures.Add(svg);
+        }
+        return depth == 0 ? pictures : [];
     }
 
     private static byte[]? Parse(string? source)
@@ -98,13 +128,8 @@ public static partial class InlineSvg
         }
     }
 
-    [GeneratedRegex(@"<svg(?=\s|>)", RegexOptions.CultureInvariant, 100)]
-    private static partial Regex SvgStart();
-
-    [GeneratedRegex(@"</svg\s*>", RegexOptions.CultureInvariant, 100)]
-    private static partial Regex SvgEnd();
-
-    [GeneratedRegex(@"</?(?:html|body|div|span|p|a)\b[^>]*>|<meta\b[^>]*>|<!--.*?-->",
+    // Consume comments, CDATA and script/style text as whole tokens. Quoted '>' characters are not tag boundaries.
+    [GeneratedRegex("""<!--.*?-->|<!\[CDATA\[.*?\]\]>|<script\b[^>]*>.*?</script\s*>|<style\b[^>]*>.*?</style\s*>|<(?<close>/)?(?<name>[A-Za-z_][\w:.-]*)(?=\s|/?>)(?:"[^"]*"|'[^']*'|[^'">])*>""",
         RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant, 100)]
-    private static partial Regex Wrappers();
+    private static partial Regex Markup();
 }

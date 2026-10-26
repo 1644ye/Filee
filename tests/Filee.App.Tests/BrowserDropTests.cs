@@ -268,9 +268,11 @@ public class BrowserDropTests
     }
 
     [AvaloniaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void Svg_selection_uses_the_existing_ctrl_drag_donut_and_conversion(bool rendered)
+    [InlineData(false, 1)]
+    [InlineData(true, 1)]
+    [InlineData(false, 3)]
+    [InlineData(true, 3)]
+    public void Svg_selection_uses_the_existing_ctrl_drag_donut_and_conversion(bool rendered, int count)
     {
         TestServices.EnsureInitialized("en");
         var store = AppHost.Get<UserDataStore>();
@@ -284,24 +286,31 @@ public class BrowserDropTests
             var root = window.FindControl<Panel>("Root")!;
             var donut = window.DonutControl;
             const string svg = "<svg width='20' height='20' viewBox='0 0 20 20'><rect width='20' height='20' fill='red'/></svg>";
+            var selection = count == 1 ? svg : "<div><h2>Features</h2><ul>" +
+                string.Concat(Enumerable.Repeat("<li>Caption" + svg + "</li>", count)) +
+                "<li><img src='other.png'></li></ul></div>";
             using var data = new DataTransfer();
             data.Add(rendered
-                ? Platform(BrowserDragFormats.WindowsHtml, "<!--StartFragment-->" + svg + "<!--EndFragment-->", utf16: false)
-                : DataTransferItem.CreateText(svg));
+                ? Platform(BrowserDragFormats.WindowsHtml, "<!--StartFragment-->" + selection + "<!--EndFragment-->", utf16: false)
+                : DataTransferItem.CreateText(selection));
             root.RaiseEvent(new DragEventArgs(DragDrop.DragEnterEvent, data, root, new Point(5, 5), KeyModifiers.Control));
             Pump();
             var model = AppHost.Get<RadialViewModel>();
-            Assert.Equal("image.svg", Path.GetFileName(Assert.Single(model.Files)));
+            Assert.Equal(count, model.Files.Count);
+            Assert.All(model.Files, file => Assert.Equal(".svg", Path.GetExtension(file)));
             var (at, preset) = FirstSlice(donut, model);
             var before = conversions.Jobs.Count;
             root.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, data, root, donut.TranslatePoint(at, root)!.Value, KeyModifiers.Control));
             Assert.True(conversions.Jobs.Count > before, $"no conversion started for {preset}");
             var job = WaitFor(conversions.Jobs[0]);
             Assert.Equal(JobState.Completed, job.State);
-            var output = Assert.Single(job.Outputs);
-            Assert.Equal(folder, Path.GetDirectoryName(output));
-            Assert.True(new FileInfo(output).Length > 0);
-            Assert.Equal([output], Directory.GetFiles(folder));
+            Assert.Equal(count, job.Outputs.Count());
+            foreach (var output in job.Outputs)
+            {
+                Assert.Equal(folder, Path.GetDirectoryName(output));
+                Assert.True(new FileInfo(output).Length > 0);
+            }
+            Assert.Equal(job.Outputs.Order(), Directory.GetFiles(folder).Order());
         }
         finally
         {

@@ -88,10 +88,12 @@ decides what in the drag is a file:
 Rules, in order: files handed over with their bytes (never `.url` shortcuts or programs); a picture (an HTML fragment
 that is one `<img>` and no text, or a Firefox file promise); a `DownloadURL` a page sets; links only when the address
 ends in an extension Filee converts and isn't a web page (`.html`, `.php`, none); last, picture pixels for a `blob:`
-picture. Complete SVG code selections, `image/svg+xml` / `public.svg-image` data and a single inline SVG in the
+picture. Complete SVG code selections, `image/svg+xml` / `public.svg-image` data and inline SVG elements in the
 dragged HTML fragment are also accepted (`InlineSvg`). They become `image.svg` through the same `WebDrop` pipeline,
 without changing the trigger gesture or donut. Missing SVG namespaces are added for standalone rendering; XML
-DTDs are prohibited and external entities are never resolved. Ordinary text, incomplete SVG, mixed selections and
+DTDs are prohibited and external entities are never resolved. Mixed selections yield their complete outer SVGs
+in order (up to 128), excluding surrounding text and raster images; escaped HTML code selections are decoded once.
+Nested SVG stays inside its parent. Ordinary text, incomplete SVG and
 selections over 4 Mi characters are ignored. The browser must actually expose the SVG in its drag data; page styles
 and definitions outside the selection are not captured. `data:` addresses are decoded.
 

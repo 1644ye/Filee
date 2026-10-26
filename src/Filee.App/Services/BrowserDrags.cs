@@ -41,7 +41,7 @@ internal static class BrowserDrags
         data.Formats.Any(f => f.Kind == DataFormatKind.Platform
                               && (BrowserDragFormats.FileGroupDescriptorW.Equals(f.Identifier, StringComparison.OrdinalIgnoreCase)
                                   || BrowserDragContent.AddressFormatNames.Contains(f.Identifier, StringComparer.OrdinalIgnoreCase)))
-        || InlineSvg.Read(new BrowserDragContent { Texts = Texts(data) }) is not null;
+        || InlineSvg.ReadMany(new BrowserDragContent { Texts = Texts(data) }).Count > 0;
 
     /// <summary>
     /// The files of a drag from a browser (or another app that holds them only in memory), standing as placeholders;
@@ -98,7 +98,7 @@ internal static class BrowserDrags
                 files.Add(WebDropItem.FromStream(entry.Name, _ => throw new IOException("The file's contents weren't handed over.")));
         }
 
-        if (files.Count == 0 && !hasAddress && InlineSvg.Read(new BrowserDragContent { Texts = texts }) is null)
+        if (files.Count == 0 && !hasAddress && texts.Count == 0)
             return null;
         return new BrowserDragContent { Files = files, Texts = texts, Picture = Picture(data, texts) };
     }
