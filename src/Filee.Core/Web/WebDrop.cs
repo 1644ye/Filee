@@ -42,6 +42,14 @@ public abstract class WebDropItem : IDisposable
             _ => Task.FromResult<Stream>(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1 << 16, useAsync: true)),
             SizeOf(path), null, null);
 
+    /// <summary>Pin a dropped temporary file until the queue copies it, even if the browser deletes its pathname.</summary>
+    public static WebDropItem FromTemporaryFile(string path, bool keepOpen)
+    {
+        if (!keepOpen) return FromTemporaryFile(path);
+        var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1 << 16, useAsync: true);
+        return FromStream(Path.GetFileName(path), _ => Task.FromResult<Stream>(stream), stream.Length, stream);
+    }
+
     private static long? SizeOf(string path)
     {
         try

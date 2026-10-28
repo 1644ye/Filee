@@ -245,6 +245,33 @@ public class BrowserDropTests
         }
     }
 
+    [AvaloniaFact]
+    public async Task Chrome_temporary_file_without_url_is_pinned_until_saved()
+    {
+        TestServices.EnsureInitialized("en");
+        var folder = Path.Combine(Path.GetTempPath(), "chrome_drag" + Environment.ProcessId + "_" + DateTime.UtcNow.Ticks);
+        Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, "image.png");
+        var destination = Path.Combine(folder, "saved");
+        File.WriteAllBytes(path, Png);
+        try
+        {
+            using var data = new DataTransfer();
+            data.Add(DataTransferItem.CreateFile(VirtualFile.Create("image.png", Png, path).Item));
+            var preview = DraggedFiles.Read(data, forDrop: false);
+            Assert.NotNull(preview.Web); preview.Web.Dispose();
+            var dropped = DraggedFiles.Read(data, forDrop: true);
+            using var web = dropped.Web;
+            Assert.NotNull(web);
+            File.Delete(path); // Chromium cleans up its temporary source after the OS drop.
+            var fetcher = web.CreateFetcher(new WebDropOptions(destination, false), AppHost.Get<WebDownloader>());
+            var output = await fetcher.FetchAsync(Assert.Single(dropped.Files), new Progress<TransferProgress>(), CancellationToken.None);
+            Assert.Equal(Png, File.ReadAllBytes(output));
+            Assert.Equal(destination, Path.GetDirectoryName(output));
+        }
+        finally { Directory.Delete(folder, recursive: true); }
+    }
+
     private static IStorageItem StorageItem(string path) => VirtualFile.Create(Path.GetFileName(path), Png, path).Item;
 
     [AvaloniaFact]

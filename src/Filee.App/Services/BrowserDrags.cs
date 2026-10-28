@@ -92,12 +92,17 @@ internal static class BrowserDrags
             {
                 // A file on disk is read as it is, unless it is a browser's temporary copy (Firefox writes the dragged
                 // picture into the temp folder): that one is saved like any file from the browser.
-                if (!hasAddress || !isTemporary(path) || !File.Exists(path))
+                if ((!hasAddress && !IsChromiumDragFile(path)) || !isTemporary(path) || !File.Exists(path))
                 {
                     DisposeAll(files);
                     return null;
                 }
-                files.Add(WebDropItem.FromTemporaryFile(path));
+                try { files.Add(WebDropItem.FromTemporaryFile(path, keepOpen: forDrop)); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // The browser may have removed the temporary file before Drop was delivered.
+                    // Leave it out instead of throwing on the UI thread; other drag formats can still supply it.
+                }
             }
             else if (storageItem is IStorageFile file)
             {
@@ -118,6 +123,12 @@ internal static class BrowserDrags
             return null;
         return new BrowserDragContent { Files = files, Texts = texts, Picture = Picture(data, texts) };
     }
+
+    // Chromium can drop a real temporary file without any URL or HTML (notably data-URL SVGs).
+    // Recognize only its dedicated drag directory, never arbitrary files in the user's temp folder.
+    internal static bool IsChromiumDragFile(string path) => System.Text.RegularExpressions.Regex.IsMatch(
+        Path.GetFileName(Path.GetDirectoryName(path)) ?? "", @"^chrome_drag[0-9]+_[0-9]+$",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
     /// <summary>True for a path in the system's temporary folder (but not in Filee's own work folders).</summary>
     internal static bool IsTemporary(string path)
