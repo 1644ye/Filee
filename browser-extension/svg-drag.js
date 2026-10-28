@@ -8,7 +8,7 @@
     "stroke-dashoffset", "opacity", "visibility", "display", "clip-path", "clip-rule", "mask",
     "filter", "paint-order", "vector-effect", "font-family", "font-size", "font-style", "font-weight",
     "text-anchor", "dominant-baseline", "letter-spacing", "word-spacing", "stop-color", "stop-opacity"];
-  let overlay, original, prepared, imageUrl, pressed = false, dragging = false, pointer;
+  let overlay, original, prepared, imageUrl, selectedCode, pressed = false, dragging = false, pointer;
 
   function pictureAddress(image) {
     // Use only URLs the page actually supplies. Keep query strings, signatures and format parameters intact.
@@ -97,8 +97,23 @@
     return result;
   }
 
+  function codeSelection(x, y) {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return null;
+    const text = selection.toString();
+    if (text.length > 4 * 1024 * 1024 || !/(?:<|&lt;)svg(?:\s|>|&gt;)/i.test(text)
+        || !/(?:<|&lt;)\/svg\s*(?:>|&gt;)/i.test(text)) return null;
+    for (let i = 0; i < selection.rangeCount; i++) {
+      const range = selection.getRangeAt(i);
+      if (![...range.getClientRects()].some(r => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom)) continue;
+      const node = range.commonAncestorContainer;
+      return { text, target: node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement, box: range.getBoundingClientRect() };
+    }
+    return null;
+  }
+
   function clear() {
-    overlay?.remove(); overlay = original = prepared = imageUrl = null; pressed = dragging = false;
+    overlay?.remove(); overlay = original = prepared = imageUrl = selectedCode = null; pressed = dragging = false;
   }
   function arm(x, y) {
     if (dragging || pressed) return;
@@ -116,23 +131,26 @@
         if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom) picture = images[0];
       }
     }
-    const target = svg || picture;
-    if (target === original) return;
+    const selection = !svg && !picture ? codeSelection(x, y) : null;
+    const target = svg || picture || selection?.target;
+    if (target === original && (selection?.text || null) === selectedCode) return;
     clear();
     if (!target) return;
-    const box = target.getBoundingClientRect();
+    const box = selection?.box || target.getBoundingClientRect();
     if (box.width <= 0 || box.height <= 0) return;
     try {
-      if (svg) prepared = snapshot(svg);
+      if (selection) selectedCode = selection.text;
+      else if (svg) prepared = snapshot(svg);
       else imageUrl = pictureAddress(picture);
     }
     catch (error) { console.warn("Filee SVG drag:", error.message); return; }
     original = target;
-    const image = document.createElement("img");
+    // A text drag must not advertise a synthetic image/virtual file ahead of the selected code.
+    const image = document.createElement(selectedCode ? "div" : "img");
     image.alt = "";
     image.setAttribute("aria-hidden", "true");
     image.draggable = true;
-    image.src = imageUrl || "data:image/svg+xml;charset=utf-8," + encodeURIComponent(prepared);
+    if (!selectedCode) image.src = imageUrl || "data:image/svg+xml;charset=utf-8," + encodeURIComponent(prepared);
     image.title = "Ctrl + drag to Filee";
     image.style.cssText = `position:fixed!important;left:${box.left}px!important;top:${box.top}px!important;` +
       `width:${box.width}px!important;height:${box.height}px!important;margin:0!important;padding:0!important;` +
@@ -140,12 +158,17 @@
       "opacity:0.01!important;cursor:grab!important;pointer-events:auto!important;user-select:none!important;";
     image.addEventListener("mousedown", event => { pressed = event.ctrlKey; });
     image.addEventListener("dragstart", event => {
-      if (!event.ctrlKey || !(prepared || imageUrl) || !event.dataTransfer) { event.preventDefault(); clear(); return; }
+      if (!event.ctrlKey || !(prepared || imageUrl || selectedCode) || !event.dataTransfer) { event.preventDefault(); clear(); return; }
       dragging = true;
       event.stopImmediatePropagation();
       event.dataTransfer.clearData();
       event.dataTransfer.effectAllowed = "copy";
-      if (prepared) {
+      if (selectedCode) {
+        const code = document.createElement("pre");
+        code.textContent = selectedCode;
+        event.dataTransfer.setData("text/plain", selectedCode);
+        event.dataTransfer.setData("text/html", code.outerHTML);
+      } else if (prepared) {
         event.dataTransfer.setData("image/svg+xml", prepared);
         event.dataTransfer.setData("text/plain", prepared);
         event.dataTransfer.setData("text/html", prepared);
@@ -163,6 +186,7 @@
     overlay = image;
     document.documentElement.append(image);
   }
+  document.addEventListener("selectionchange", () => { if (!pressed && !dragging) clear(); });
   document.addEventListener("mousemove", event => {
     pointer = [event.clientX, event.clientY];
     if (event.ctrlKey && !event.buttons) arm(...pointer);

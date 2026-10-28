@@ -1,4 +1,6 @@
 {
+  "triggers.svg_code_drag": "SVG 程式碼拖曳喚醒",
+  "triggers.svg_code_drag_hint": "選取完整 SVG 程式碼，按住 Ctrl 拖曳即可喚醒圓盤。需啟用 Ctrl 拖曳手勢；Chrome 配套擴充功能可協助不支援文字拖曳的網頁。關閉不影響圖片和檔案拖曳。",
   "general.download_location": "圓盤下載儲存位置",
   "general.download.Default": "預設儲存（系統下載資料夾）",
   "general.download.Ask": "每次選擇位置",

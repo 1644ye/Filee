@@ -1,4 +1,6 @@
 {
+  "triggers.svg_code_drag": "SVG 代码拖拽唤醒",
+  "triggers.svg_code_drag_hint": "选中完整 SVG 代码，按住 Ctrl 拖拽即可唤醒圆盘。需启用 Ctrl 拖拽手势；不支持文本拖拽的网页可由 Chrome 配套扩展辅助。关闭此项不影响图片和文件拖拽。",
   "general.download_location": "圆盘下载保存位置",
   "general.download.Default": "默认保存（系统下载文件夹）",
   "general.download.Ask": "每次选择位置",

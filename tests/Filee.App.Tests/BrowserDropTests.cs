@@ -51,6 +51,33 @@ public class BrowserDropTests
         }
     }
 
+    [AvaloniaFact]
+    public void Svg_code_toggle_blocks_code_but_keeps_explicit_svg_pictures()
+    {
+        TestServices.EnsureInitialized("en");
+        var store = AppHost.Get<UserDataStore>();
+        var previous = store.Settings.BrowserDrops.EnableSvgCodeDrag;
+        const string svg = "<svg width='20' height='20'><rect width='20' height='20'/></svg>";
+        try
+        {
+            using var code = new DataTransfer(); code.Add(DataTransferItem.CreateText(svg));
+            store.Settings.BrowserDrops.EnableSvgCodeDrag = false;
+            Assert.False(DraggedFiles.Offered(code));
+            Assert.Empty(DraggedFiles.Read(code, forDrop: false).Files);
+            Assert.Empty(DraggedFiles.Read(code, forDrop: true).Files);
+            using var rendered = new DataTransfer(); rendered.Add(Platform(BrowserDragFormats.Svg, svg, utf16: false));
+            var picture = DraggedFiles.Read(rendered, forDrop: true);
+            using var pictureDrop = picture.Web;
+            Assert.Single(picture.Files);
+            store.Settings.BrowserDrops.EnableSvgCodeDrag = true;
+            Assert.True(DraggedFiles.Offered(code));
+            var selected = DraggedFiles.Read(code, forDrop: true);
+            using var selectionDrop = selected.Web;
+            Assert.Single(selected.Files);
+        }
+        finally { store.Settings.BrowserDrops.EnableSvgCodeDrag = previous; }
+    }
+
     /// <summary>A 1×1 PNG.</summary>
     private static readonly byte[] Png = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");

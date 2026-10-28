@@ -11,6 +11,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Filee.Core.Platform;
 using Filee.Core.Web;
+using Filee.Core.Settings;
 
 namespace Filee.App.Services;
 
@@ -37,11 +38,25 @@ internal static class BrowserDrags
     /// Whether the drag may hold a file from a browser (an address or a virtual file): cheap, for the drop effect while
     /// dragging over the drop zone.
     /// </summary>
-    public static bool MayOffer(IDataTransfer data) =>
-        data.Formats.Any(f => f.Kind == DataFormatKind.Platform
-                              && (BrowserDragFormats.FileGroupDescriptorW.Equals(f.Identifier, StringComparison.OrdinalIgnoreCase)
-                                  || BrowserDragContent.AddressFormatNames.Contains(f.Identifier, StringComparer.OrdinalIgnoreCase)))
-        || InlineSvg.ReadMany(new BrowserDragContent { Texts = Texts(data) }).Count > 0;
+    private static bool SvgCodeEnabled => AppHost.TryGet<UserDataStore>()?.Settings.BrowserDrops.EnableSvgCodeDrag ?? true;
+
+    internal static bool IsSvgCodeSelection(IDataTransfer data)
+    {
+        // Real files and an explicitly serialized SVG picture are independent of the code-selection toggle.
+        if (data.Contains(DataFormat.File)) return false;
+        var texts = Texts(data);
+        if (texts.ContainsKey(BrowserDragFormats.Svg) || texts.ContainsKey(BrowserDragFormats.MacSvg)) return false;
+        return InlineSvg.ReadMany(new BrowserDragContent { Texts = texts }).Count > 0;
+    }
+
+    public static bool MayOffer(IDataTransfer data)
+    {
+        if (!SvgCodeEnabled && IsSvgCodeSelection(data)) return false;
+        return data.Formats.Any(f => f.Kind == DataFormatKind.Platform
+            && (BrowserDragFormats.FileGroupDescriptorW.Equals(f.Identifier, StringComparison.OrdinalIgnoreCase)
+                || BrowserDragContent.AddressFormatNames.Contains(f.Identifier, StringComparer.OrdinalIgnoreCase)))
+            || InlineSvg.ReadMany(new BrowserDragContent { Texts = Texts(data) }).Count > 0;
+    }
 
     /// <summary>
     /// The files of a drag from a browser (or another app that holds them only in memory), standing as placeholders;
@@ -56,6 +71,7 @@ internal static class BrowserDrags
 
     internal static WebDrop? Read(IDataTransfer data, bool forDrop, string workRoot, Func<string, bool> isTemporary)
     {
+        if (!SvgCodeEnabled && IsSvgCodeSelection(data)) return null;
         var content = Content(data, forDrop, isTemporary);
         if (content is null)
             return null;

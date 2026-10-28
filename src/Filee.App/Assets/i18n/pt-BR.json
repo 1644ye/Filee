@@ -1,4 +1,6 @@
 {
+  "triggers.svg_code_drag": "Wake Filee by dragging SVG code",
+  "triggers.svg_code_drag_hint": "Select complete SVG code, hold Ctrl and drag to open the ring. Requires an enabled Ctrl-drag gesture; the Chrome companion helps webpages that do not support dragging text. Turning this off does not affect picture or file drags.",
   "general.download_location": "Download save location",
   "general.download.Default": "Default (Downloads folder)",
   "general.download.Ask": "Choose a folder every time",

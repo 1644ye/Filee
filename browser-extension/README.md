@@ -7,7 +7,8 @@ Companion to Filee's Ctrl-drag conversion. It supports ordinary pictures, linked
 1. Open `chrome://extensions`, enable Developer mode, and choose **Load unpacked**.
 2. Select this `browser-extension` directory. Keep it in place while the extension is installed.
 3. Allow the extension to run on all websites. It activates automatically on HTTP and HTTPS pages.
-4. Hold **Ctrl**, move onto a picture or SVG and drag it into Filee's conversion ring.
+4. Select complete SVG source code and hold **Ctrl** while dragging it to Filee. The companion supplies native text drag data on webpages that do not make selections draggable. Enable or disable this in Filee Settings > Shortcuts > Wake Filee by dragging SVG code (enabled by default). Chrome internal pages and DevTools cannot be modified by the companion.
+5. Hold **Ctrl**, move onto a picture or SVG and drag it into Filee's conversion ring.
 
 After updating, reload the extension in `chrome://extensions` and accept Chrome's expanded site-access prompt
 if shown. Refresh already-open webpages, or click **Filee SVG Drag** once to activate the current tab.

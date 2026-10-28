@@ -256,6 +256,18 @@ public sealed partial class TriggersPageViewModel : ObservableObject, IDisposabl
         Flip = new FlipOptionsViewModel(store, loc, Save);
     }
 
+    public bool EnableSvgCodeDrag
+    {
+        get => _store.Settings.BrowserDrops.EnableSvgCodeDrag;
+        set
+        {
+            if (value == EnableSvgCodeDrag) return;
+            _store.Settings.BrowserDrops.EnableSvgCodeDrag = value;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
     /// <summary>The key and the wheel that flip the open donut.</summary>
     public FlipOptionsViewModel Flip { get; }
 
