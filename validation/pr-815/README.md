@@ -18,7 +18,7 @@ Head under test: `110e904` (the recording uses `eaaea17`; the only subsequent ch
 
 - `dotnet format Filee.slnx --verify-no-changes --no-restore`: exit 0. Workspace loading emitted a warning; no formatting changes were requested.
 - Focused `DonutAnimationTests`, `DonutFlipTests`, and `MotionTests`: **55 passed, 0 failed**.
-- Full `Filee.App.Tests`: final result pending.
+- Full `Filee.App.Tests`: **1,627 passed, 0 failed, 3 skipped**, 1,630 total (12.97 minutes). Two Explorer menu checks require the optional native package build; the symlink test is skipped because this machine does not allow creating its symbolic link. See `test-results.json`.
 
 The first focused run exposed 10 legacy assertions requiring a nonzero minimum width at the edge-on handoff. The updated assertions require exact zero at the seam, visible expansion on the next sampled frame, and completion at the original deadline. No production code was changed during this validation.
 
