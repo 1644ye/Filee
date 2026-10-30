@@ -124,6 +124,12 @@ public sealed class WebDrop : IDisposable
     /// <summary>This drop's own folder inside the work root.</summary>
     public string WorkFolder { get; }
 
+    /// <summary>
+    /// Whether only the converted file is kept, whatever Settings says (<see cref="WebDropOptions.SaveOnlyConverted"/>);
+    /// null follows Settings. A picture from the clipboard keeps only its result: the original was never a file.
+    /// </summary>
+    public bool? SaveOnlyConverted { get; init; }
+
     /// <summary>The paths the files stand as until they are saved.</summary>
     public IReadOnlyList<string> Placeholders => _placeholders;
 
@@ -234,7 +240,7 @@ public sealed class WebDropFetcher(WebDrop drop, WebDropOptions options, WebDown
 
     public async Task<string> FetchAsync(string placeholder, IProgress<TransferProgress> progress, CancellationToken cancellationToken)
     {
-        if (options.SavePaths?.TryGetValue(placeholder, out var destination) != true)
+        if (options.SavePaths is null || !options.SavePaths.TryGetValue(placeholder, out var destination))
             return await drop.ItemFor(placeholder).SaveAsync(SaveFolder, downloader, progress, cancellationToken);
         var staging = Path.Combine(drop.WorkFolder, "named-downloads");
         var saved = await drop.ItemFor(placeholder).SaveAsync(staging, downloader, progress, cancellationToken);
@@ -250,3 +256,4 @@ public sealed class WebDropFetcher(WebDrop drop, WebDropOptions options, WebDown
         WebDrop.TryDeleteFolder(drop.WorkFolder);
     }
 }
+

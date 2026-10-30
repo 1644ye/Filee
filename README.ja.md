@@ -29,6 +29,7 @@
 <p align="center">
   <a href="https://trendshift.io/repositories/276987"><img src="https://trendshift.io/api/badge/trendshift/repositories/276987/weekly?language=C%23&v=2" alt="Filee: #1 C# repository of the week on Trendshift" width="250" height="55"></a>
   <a href="https://trendshift.io/repositories/276987"><img src="https://trendshift.io/api/badge/trendshift/repositories/276987/daily?language=C%23&v=2" alt="Filee: #1 C# repository of the day on Trendshift" width="250" height="55"></a>
+  <a href="https://hellogithub.com/repository/KnifeLemon/Filee" target="_blank"><img src="https://abroad.hellogithub.com/v1/widgets/recommend.svg?rid=0847caedd5bd4077a70b90f83afdf83c&claim_uid=jAlIvVMhn0kcEsU" alt="Featured｜HelloGitHub" width="250" height="54" /></a>
 </p>
 
 <p align="center">
@@ -43,8 +44,11 @@
   <a href="README.ru.md">Русский</a> ·
   <a href="README.ar.md">العربية</a> ·
   <a href="README.pt-BR.md">Português (Brasil)</a> ·
+  <a href="README.pt-PT.md">Português (Portugal)</a> ·
   <a href="README.fr.md">Français</a> ·
-  <a href="README.th.md">ไทย</a>
+  <a href="README.th.md">ไทย</a> ·
+  <a href="README.tr.md">Türkçe</a> ·
+  <a href="README.id.md">Bahasa Indonesia</a>
 </p>
 
 <table>
@@ -55,7 +59,7 @@
       いま作業している場所に、ドラッグ中のファイルに合う形式だけが表示されます。
     </td>
     <td width="33%" valign="top">
-      <b>263形式、ほかのソフトは不要</b><br>
+      <b>270形式、ほかのソフトは不要</b><br>
       画像、PDF、Word、Excel、PowerPoint、HWP、電子書籍、アーカイブ、フォント、CAD、3Dモデル、地理空間データを、Office、Hancom Office、LibreOfficeなしで変換できます。
     </td>
     <td width="33%" valign="top">
@@ -76,6 +80,8 @@
 ## インストール
 
 [Releases](https://github.com/KnifeLemon/Filee/releases/latest)からダウンロードしてください。
+
+<a href="https://apps.microsoft.com/detail/XPDCN05L89WS0C?referrer=appbadge&cid=github&mode=full"><img src="https://get.microsoft.com/images/ja%20dark.svg" alt="Microsoft Store" width="200"></a>
 
 - **Windows 10/11**：`Filee-<version>-win-Setup.exe`を実行するか、`win-Portable.zip`を展開して`Filee.exe`を実行します。
   - セットアップはFilee独自のインストーラーで、Fileeと同じ言語で表示され、PCにほかのソフトは必要ありません。
@@ -130,7 +136,7 @@ Set-ProcessMitigation -Name filee-cli.exe -Disable UserShadowStack
 - **ほかの使い方**：右クリックメニュー、キーボードショートカット、ドロップ領域、[`filee`コマンド](#コマンドライン)。
 - ライトテーマとダークテーマ。
   アクセントカラーとドーナツメニューの不透明度も選べます。
-  English、Español、日本語、한국어、简体中文、繁體中文、Polski、हिन्दी、Русский、العربية（右から左へ表示）、Português (Brasil)、Français、नेपाली、ไทย、Türkçe、Português (Portugal)に対応。
+  English、Español、日本語、한국어、简体中文、繁體中文、Polski、हिन्दी、Русский、العربية（右から左へ表示）、Português (Brasil)、Français、नेपाली、ไทย、Türkçe、Português (Portugal)、Deutsch、Italiano、Bahasa Indonesiaに対応。
 
 ## スクリーンショット
 
@@ -163,10 +169,10 @@ Set-ProcessMitigation -Name filee-cli.exe -Disable UserShadowStack
 | **字幕**：SRT、ASS/SSA、WebVTT、SAMI（SMI）、LRC、TTML、MicroDVD、SCC | 相互変換、UTF-8で保存（CP949の韓国語ファイルも正しく読み込み） |
 | **アーカイブ**：ZIP、ANSYS Workbench（WBPZ）、7Z、RAR、TAR、TAR.GZ、TAR.BZ2、TAR.XZ、GZ、ISO、CAB、DMG、ALZ、EGG など | 展開、ZIP、7Z、TAR、TAR.GZ。<br>複数のファイル → 1つのZIP |
 | **CAD**：DWG、DXF | PDF、SVG、PNG、DWG ↔ DXF |
-| **フォント**：TTF、OTF、WOFF、WOFF2、EOT | 相互変換 |
+| **フォント**：TTF、OTF、WOFF、WOFF2、EOT；<br>FON（Windowsビットマップフォント）は読み込みのみ | 相互変換；<br>FON → サイズごとに1ファイル |
 | **データ**：JSON、JSON Lines、YAML、TOML、XML<br>vCard、iCalendar | 相互変換、CSVとXLSX（表形式のデータ）。<br>vCard、iCalendar ↔ CSV |
 | **3Dモデル**：GLB、glTF、STL、OBJ（+ MTL）、3MF、PLY。<br>FBXは読み込みのみ | 相互変換、PNGプレビュー |
-| **地理空間ベクターデータ**：Shapefile、GeoJSON、KML、KMZ、GPX<br>座標付きのCSV | 相互変換、CSV/XLSX/JSON。<br>投影座標系（UTM、Webメルカトル、ランベルト、アルベルス）のデータはWGS 84の経度/緯度で出力 |
+| **地理空間ベクターデータ**：Shapefile、GeoJSON、KML、KMZ、GPX<br>座標付きのCSV。<br>Garmin FITは読み込みのみ | 相互変換、CSV/XLSX/JSON。<br>投影座標系（UTM、Webメルカトル、ランベルト、アルベルス）のデータはWGS 84の経度/緯度で出力 |
 
 印のない形式は、Office、Hancom Office、LibreOfficeなしですぐに使えます。
 印のある形式には追加の変換エンジンが必要で、必要なときにだけダウンロードされます：¹ Ghostscript、² LibreOffice、³ Pandoc、⁴ calibre、⁵ FFmpeg（[詳細](docs/ENGINES.md)）。

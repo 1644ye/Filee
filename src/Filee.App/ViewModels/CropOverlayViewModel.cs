@@ -55,19 +55,82 @@ public sealed partial class CropOverlayViewModel : ObservableObject, IDisposable
     [ObservableProperty] private double _aspectRatio;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsPerspectiveOn))]
+    private bool _isPerspective;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsPerspectiveOn), nameof(CanUsePerspective), nameof(PerspectiveToolTip))]
+    private bool _isPdf;
+
+    public bool IsPerspectiveOn => IsPerspective && !IsPdf && IsEditing;
+    public bool CanUsePerspective => !IsPdf;
+    public string PerspectiveToolTip => _loc[IsPdf ? "crop.perspective_pdf" : "crop.perspective_tip"];
+
+    partial void OnIsPerspectiveChanged(bool value)
+    {
+        IsAspectDialOpen = false;
+        if (value)
+        {
+            CornersResetRequested?.Invoke();
+            PerspectiveTurnedOn?.Invoke();
+        }
+        else
+        {
+            UpdateDimensions(CurrentCropRect);
+        }
+    }
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AspectLabel))]
     [NotifyPropertyChangedFor(nameof(AspectToolTip))]
     [NotifyPropertyChangedFor(nameof(SelectedAspectIndex))]
     [NotifyPropertyChangedFor(nameof(CanSwapOrientation))]
     [NotifyPropertyChangedFor(nameof(IsAspectFree))]
+    [NotifyPropertyChangedFor(nameof(IsCustomAspect))]
     private string _selectedAspect = "free";
 
-    /// <summary>The fixed ratios (4:3, 3:2, 16:9) turned upright: 3:4, 2:3, 9:16.</summary>
+    /// <summary>The fixed ratios (5:4, 4:3, 3:2, 16:9) turned upright: 4:5, 3:4, 2:3, 9:16; the custom one as H × W.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AspectLabel))]
     [NotifyPropertyChangedFor(nameof(AspectToolTip))]
     [NotifyPropertyChangedFor(nameof(OrientationText))]
+    [NotifyPropertyChangedFor(nameof(CustomLabel))]
     private bool _isPortrait;
+
+    /// <summary>
+    /// The custom ratio's W and H (#542), typed beside the ratio button: 4 × 5 or 1080 × 1350, only the ratio counts.
+    /// Kept while the crop window is open, for the whole batch; no setting.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CustomRatio), nameof(CustomLabel), nameof(AspectLabel), nameof(AspectToolTip))]
+    private int _customWidth = 2; // a ratio no other slice has, so the slice reads as its own
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CustomRatio), nameof(CustomLabel), nameof(AspectLabel), nameof(AspectToolTip))]
+    private int _customHeight = 1;
+
+    public double CustomRatio => (double)Math.Max(1, CustomWidth) / Math.Max(1, CustomHeight);
+
+    /// <summary>The custom slice's name: its ratio as small as it goes ("4:5"), as the other ratio slices show theirs.</summary>
+    public string CustomLabel => CropMath.CustomNumbers(CustomWidth, CustomHeight, IsPortrait && IsCustomAspect);
+
+    public bool IsCustomAspect => SelectedAspect == "custom";
+
+    partial void OnCustomWidthChanged(int value) => CustomChanged();
+
+    partial void OnCustomHeightChanged(int value) => CustomChanged();
+
+    private void CustomChanged()
+    {
+        if (!IsCustomAspect)
+            return;
+        ApplyAspect("custom");
+        // Typed a digit at a time, the ratio passes through odd shapes (1080 × 5): the frame starts over as large as
+        // the new ratio fits, rather than shrinking along with each of them.
+        var frame = CropMath.Centered(AspectRatio, OriginalWidth, OriginalHeight);
+        UpdateDimensions(frame);
+        ResetRequested?.Invoke(frame);
+    }
 
     [ObservableProperty] private bool _isAspectDialOpen;
 
@@ -83,6 +146,7 @@ public sealed partial class CropOverlayViewModel : ObservableObject, IDisposable
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEditing))]
+    [NotifyPropertyChangedFor(nameof(IsPerspectiveOn))]
     private bool _isFinished;
 
     public bool IsEditing => !IsFinished;
@@ -126,6 +190,7 @@ public sealed partial class CropOverlayViewModel : ObservableObject, IDisposable
     {
         "free" => _loc["crop.aspect_free"],
         "original" => _loc["crop.aspect_original"],
+        "custom" => CustomLabel,
         _ => CropMath.Numbers(SelectedAspect, IsPortrait),
     };
 
@@ -134,10 +199,22 @@ public sealed partial class CropOverlayViewModel : ObservableObject, IDisposable
     public string OrientationText => _loc[IsPortrait ? "crop.portrait" : "crop.landscape"];
 
     public event Action? CloseRequested;
-    public event Action? ResetRequested;
+
+    /// <summary>The frame starts over: the whole picture, or the frame given (a ratio carried from the last picture).</summary>
+    public event Action<Rect?>? ResetRequested;
     public event Action<double>? AspectRatioChanged;
+    public event Action? CornersResetRequested;
+    public event Action? PerspectiveTurnedOn;
+
+    /// <summary>
+    /// The ratio the user picked, kept for the next pictures of the batch (#542), and its orientation; null while none
+    /// was picked or after Reset, so the next picture starts free.
+    /// </summary>
+    private string? _batchAspect;
+    private bool _batchPortrait;
 
     public Rect CurrentCropRect { get; set; } = new(0.05, 0.05, 0.9, 0.9);
+    public CropQuad CurrentCorners { get; private set; } = CropQuad.Full;
 
     public CropOverlayViewModel(IReadOnlyList<string> files, Preset preset, ILocalizer loc, UserDataStore store, ILogger? log = null)
     {
@@ -166,6 +243,7 @@ public sealed partial class CropOverlayViewModel : ObservableObject, IDisposable
         CurrentIndex = index;
         var path = _files[index];
         CurrentFileName = Path.GetFileName(path);
+        IsPdf = Path.GetExtension(path).Equals(".pdf", StringComparison.OrdinalIgnoreCase);
         CounterText = _loc.Format("crop.page_counter", index + 1, _files.Count);
         SaveText = _loc[index < _files.Count - 1 ? "crop.save_next" : "crop.save"];
         Queue[index].State = CropItemState.Current;
@@ -186,14 +264,19 @@ public sealed partial class CropOverlayViewModel : ObservableObject, IDisposable
 
             OriginalWidth = origW;
             OriginalHeight = origH;
-            SelectedAspect = "free";
-            IsPortrait = origH > origW;
+            // A ratio picked for an earlier picture carries on (#542): the frame starts as large as it fits, centred,
+            // in the orientation picked for it. Free (nothing picked yet) starts on the whole picture.
+            var mode = _batchAspect ?? "free";
+            SelectedAspect = mode;
+            IsPortrait = CropMath.CanSwap(mode) ? _batchPortrait : origH > origW;
             IsAspectDialOpen = false;
-            AspectRatio = 0;
-            AspectRatioChanged?.Invoke(0);
-            CurrentCropRect = new Rect(0.05, 0.05, 0.9, 0.9);
-            UpdateDimensions(CurrentCropRect);
-            ResetRequested?.Invoke();
+            AspectRatio = CropMath.Ratio(mode, IsPortrait, origW, origH, CustomRatio);
+            AspectRatioChanged?.Invoke(AspectRatio);
+            var frame = CropMath.Centered(AspectRatio, origW, origH);
+            UpdateDimensions(frame);
+            ResetRequested?.Invoke(frame);
+            if (IsPerspectiveOn)
+                CornersResetRequested?.Invoke();
         }
         catch (Exception ex)
         {
@@ -222,7 +305,18 @@ public sealed partial class CropOverlayViewModel : ObservableObject, IDisposable
     public void UpdateDimensions(Rect norm)
     {
         CurrentCropRect = norm;
+        if (IsPerspectiveOn)
+            return;
         var size = CropMath.PixelSize(norm, OriginalWidth, OriginalHeight);
+        DimensionsText = $"{size.Width} × {size.Height} px";
+    }
+
+    public void UpdateCorners(CropQuad corners)
+    {
+        CurrentCorners = corners;
+        if (!IsPerspectiveOn)
+            return;
+        var size = CropMath.PerspectiveSize(corners, OriginalWidth, OriginalHeight);
         DimensionsText = $"{size.Width} × {size.Height} px";
     }
 
@@ -246,7 +340,7 @@ public sealed partial class CropOverlayViewModel : ObservableObject, IDisposable
         try
         {
             var result = await CropService.CropFileAsync(path, x, y, w, h, _preset, _store, _loc, _log,
-                OriginalWidth, OriginalHeight);
+                OriginalWidth, OriginalHeight, corners: IsPerspectiveOn ? CurrentCorners : null);
             if (result.Status == CropStatus.Success && result.OutputPath is not null)
             {
                 _outputs.Add(result.OutputPath);
@@ -303,11 +397,17 @@ public sealed partial class CropOverlayViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public void Reset()
     {
+        if (IsPerspectiveOn)
+        {
+            CornersResetRequested?.Invoke();
+            return;
+        }
+        _batchAspect = null; // the next pictures start free again
         SelectedAspect = "free";
         IsPortrait = OriginalHeight > OriginalWidth;
         AspectRatio = 0;
         AspectRatioChanged?.Invoke(0);
-        ResetRequested?.Invoke();
+        ResetRequested?.Invoke(null);
     }
 
     /// <summary>Cancel, or Close once finished. A crop still saving finishes and goes into the history.</summary>
@@ -318,11 +418,14 @@ public sealed partial class CropOverlayViewModel : ObservableObject, IDisposable
         CloseRequested?.Invoke();
     }
 
-    /// <summary>Locks the frame to a ratio of the dial ("free", "original", "1:1", "4:3", "3:2", "16:9") and closes the dial.</summary>
+    /// <summary>Locks the frame to a ratio of the dial ("free", "original", "1:1", "5:4", "4:3", "3:2", "16:9") and closes the dial.</summary>
     [RelayCommand]
     public void SetAspect(string mode)
     {
         IsAspectDialOpen = false;
+        // The custom ratio is W × H as typed, whatever way the picture stands; the hub turns it.
+        if (mode == "custom" && !IsCustomAspect)
+            IsPortrait = false;
         ApplyAspect(mode);
     }
 
@@ -341,6 +444,8 @@ public sealed partial class CropOverlayViewModel : ObservableObject, IDisposable
     {
         var modes = CropMath.AspectModes;
         var next = ((SelectedAspectIndex + step) % modes.Count + modes.Count) % modes.Count;
+        if (modes[next] == "custom")
+            IsPortrait = false; // as typed, see SetAspect
         ApplyAspect(modes[next]);
     }
 
@@ -353,9 +458,11 @@ public sealed partial class CropOverlayViewModel : ObservableObject, IDisposable
 
     private void ApplyAspect(string mode)
     {
+        (_batchAspect, _batchPortrait) = (mode == "free" ? null : mode, IsPortrait);
         SelectedAspect = mode;
-        AspectRatio = CropMath.Ratio(mode, IsPortrait, OriginalWidth, OriginalHeight);
+        AspectRatio = CropMath.Ratio(mode, IsPortrait, OriginalWidth, OriginalHeight, CustomRatio);
         AspectRatioChanged?.Invoke(AspectRatio);
+        OnPropertyChanged(nameof(CustomLabel));
     }
 
     private void AddFailure(string path, string errorKey, string? detail)
@@ -437,6 +544,7 @@ public sealed partial class CropOverlayViewModel : ObservableObject, IDisposable
         }
         OnPropertyChanged(nameof(AspectLabel));
         OnPropertyChanged(nameof(AspectToolTip));
+        OnPropertyChanged(nameof(PerspectiveToolTip));
         OnPropertyChanged(nameof(OrientationText));
         foreach (var item in Queue)
             item.RefreshTexts();
@@ -462,8 +570,12 @@ public enum CropItemState
     Failed,
 }
 
-/// <summary>One file of the crop overlay's strip: a small thumbnail once it has been opened, and how it went.</summary>
-public sealed partial class CropQueueItem(ILocalizer loc, string name, int index) : ObservableObject, IDisposable
+/// <summary>
+/// One file of the strip of the crop overlay (and of the "Pixelate / blur" window): a small thumbnail once it has been
+/// opened, and how it went. <paramref name="doneKey"/> names a file that is done.
+/// </summary>
+public sealed partial class CropQueueItem(ILocalizer loc, string name, int index, string doneKey = "crop.state_done")
+    : ObservableObject, IDisposable
 {
     /// <summary>Longest side of a thumbnail in the strip (at twice its size on screen, for high-DPI displays).</summary>
     private const int ThumbnailSide = 72;
@@ -495,7 +607,7 @@ public sealed partial class CropQueueItem(ILocalizer loc, string name, int index
     public string StateText => loc[State switch
     {
         CropItemState.Current => "crop.state_current",
-        CropItemState.Done => "crop.state_done",
+        CropItemState.Done => doneKey,
         CropItemState.Skipped => "crop.state_skipped",
         CropItemState.Failed => "crop.state_failed",
         _ => "crop.state_waiting",

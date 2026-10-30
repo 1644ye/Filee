@@ -29,6 +29,7 @@
 <p align="center">
   <a href="https://trendshift.io/repositories/276987"><img src="https://trendshift.io/api/badge/trendshift/repositories/276987/weekly?language=C%23&v=2" alt="Filee: #1 C# repository of the week on Trendshift" width="250" height="55"></a>
   <a href="https://trendshift.io/repositories/276987"><img src="https://trendshift.io/api/badge/trendshift/repositories/276987/daily?language=C%23&v=2" alt="Filee: #1 C# repository of the day on Trendshift" width="250" height="55"></a>
+  <a href="https://hellogithub.com/repository/KnifeLemon/Filee" target="_blank"><img src="https://abroad.hellogithub.com/v1/widgets/recommend.svg?rid=0847caedd5bd4077a70b90f83afdf83c&claim_uid=jAlIvVMhn0kcEsU" alt="Featured｜HelloGitHub" width="250" height="54" /></a>
 </p>
 
 <p align="center">
@@ -43,8 +44,11 @@
   <a href="README.ru.md">Русский</a> ·
   <a href="README.ar.md">العربية</a> ·
   <a href="README.pt-BR.md">Português (Brasil)</a> ·
+  <a href="README.pt-PT.md">Português (Portugal)</a> ·
   <a href="README.fr.md">Français</a> ·
-  <a href="README.th.md">ไทย</a>
+  <a href="README.th.md">ไทย</a> ·
+  <a href="README.tr.md">Türkçe</a> ·
+  <a href="README.id.md">Bahasa Indonesia</a>
 </p>
 
 <table>
@@ -55,7 +59,7 @@
       The formats appear where you already are, only the ones that make sense for the files you drag.
     </td>
     <td width="33%" valign="top">
-      <b>263 formats, no other software</b><br>
+      <b>270 formats, no other software</b><br>
       Images, PDF, Word, Excel, PowerPoint, HWP, e-books, archives, fonts, CAD, 3D models and geospatial data work without Office, Hancom Office or LibreOffice.
     </td>
     <td width="33%" valign="top">
@@ -76,6 +80,8 @@
 ## Install
 
 Download from [Releases](https://github.com/KnifeLemon/Filee/releases/latest).
+
+<a href="https://apps.microsoft.com/detail/XPDCN05L89WS0C?referrer=appbadge&cid=github&mode=full"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Microsoft Store" width="200"></a>
 
 - **Windows 10/11**: run `Filee-<version>-win-Setup.exe`, or unzip the `win-Portable.zip` and run `Filee.exe`.
   - Setup is Filee's own installer, in Filee's languages, and needs nothing else on the PC.
@@ -127,7 +133,7 @@ To undo it, remove the entries in Windows Security → App & browser control →
 - **Watch folders** convert every file that lands in them.
 - **Recent conversions** on Home, each with a thumbnail: open the result, or open it with another app.
 - **Other ways in**: the right-click menu, a keyboard shortcut, the drop zone and the [`filee` command](#command-line).
-- Light and dark themes with your own accent colour and donut opacity, in English, Español, 日本語, 한국어, 简体中文, 繁體中文, Polski, हिन्दी, Русский, العربية (right to left), Português (Brasil), Français, नेपाली, ไทย, Türkçe and Português (Portugal).
+- Light and dark themes with your own accent colour and donut opacity, in English, Español, 日本語, 한국어, 简体中文, 繁體中文, Polski, हिन्दी, Русский, العربية (right to left), Português (Brasil), Français, नेपाली, ไทย, Türkçe, Português (Portugal), Deutsch, Italiano and Bahasa Indonesia.
 
 ## Screenshots
 
@@ -160,10 +166,10 @@ To undo it, remove the entries in Windows Security → App & browser control →
 | **Subtitles**: SRT, ASS/SSA, WebVTT, SAMI (SMI), LRC, TTML, MicroDVD, SCC | each other as UTF-8 (Korean CP949 files read correctly) |
 | **Archives**: ZIP, ANSYS Workbench (WBPZ), 7Z, RAR, TAR, TAR.GZ, TAR.BZ2, TAR.XZ, GZ, ISO, CAB, DMG, ALZ, EGG, … | extract, ZIP, 7Z, TAR, TAR.GZ;<br>any files → one ZIP |
 | **CAD**: DWG, DXF | PDF, SVG, PNG, DWG ↔ DXF |
-| **Fonts**: TTF, OTF, WOFF, WOFF2, EOT | each other |
+| **Fonts**: TTF, OTF, WOFF, WOFF2, EOT;<br>FON (Windows bitmap fonts) read | each other;<br>FON → one font per size |
 | **Data**: JSON, JSON Lines, YAML, TOML, XML<br>vCard, iCalendar | each other, CSV and XLSX (tables);<br>vCard, iCalendar ↔ CSV |
 | **3D models**: GLB, glTF, STL, OBJ (+ MTL), 3MF, PLY;<br>FBX read | each other, PNG preview |
-| **Geospatial vectors**: Shapefile, GeoJSON, KML, KMZ, GPX<br>CSV with coordinates | each other and CSV / XLSX / JSON;<br>projected data (UTM, Web Mercator, Lambert, Albers) comes out as WGS 84 longitude / latitude |
+| **Geospatial vectors**: Shapefile, GeoJSON, KML, KMZ, GPX<br>CSV with coordinates; Garmin FIT read | each other and CSV / XLSX / JSON;<br>projected data (UTM, Web Mercator, Lambert, Albers) comes out as WGS 84 longitude / latitude |
 
 Unmarked formats work out of the box, without Office, Hancom Office or LibreOffice.
 Marked ones need an optional engine, downloaded only when needed: ¹ Ghostscript, ² LibreOffice, ³ Pandoc, ⁴ calibre, ⁵ FFmpeg ([details](docs/ENGINES.md)).

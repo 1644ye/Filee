@@ -3,7 +3,8 @@
 // The drag gestures themselves live in the view (ToolbarPage.axaml.cs); this class only mutates the model.
 // A profile is either normal (extension chips, ExtensionTagsViewModel) or for mixed selections (check list,
 // MixedExtensionsViewModel). Normal profiles are kept before the mixed ones, so a new mixed profile never takes over
-// the catch-all role of the built-in "Mixed files" donut (see ProfileSelector).
+// the catch-all role of the built-in "Mixed files" donut (see ProfileSelector). Move up / Move down (Alt+↑ / Alt+↓)
+// reorder a profile among its own kind, which decides the profile that opens for a shared extension (#522).
 
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -60,6 +61,7 @@ public sealed record PaletteChip(string PresetId, string Label, string? Caption,
 {
     public bool IsDimmed => Use != PresetUse.Usable;
     public bool CanAdd => Use != PresetUse.Unusable;
+    public object? Tip { get; init; }
 }
 
 public sealed partial class ToolbarPageViewModel : ObservableObject, IDisposable
@@ -92,6 +94,7 @@ public sealed partial class ToolbarPageViewModel : ObservableObject, IDisposable
     }
 
     private readonly Dictionary<string, PaletteJudging> _judgingByProfile = [];
+    private readonly Dictionary<string, PresetFormatTip> _tipsByPreset = [];
     private object? _pass;
     private bool _disposed;
     private bool _savingOwnLibrary;
@@ -142,6 +145,7 @@ public sealed partial class ToolbarPageViewModel : ObservableObject, IDisposable
         _store.LibraryChanged -= OnLibraryChanged;
         StopJudging();
         _judgingByProfile.Clear();
+        _tipsByPreset.Clear();
     }
 
     private void StopJudging()
@@ -153,7 +157,10 @@ public sealed partial class ToolbarPageViewModel : ObservableObject, IDisposable
     {
         StopJudging();
         if (profileId is null)
+        {
             _judgingByProfile.Clear();
+            _tipsByPreset.Clear();
+        }
         else
             _judgingByProfile.Remove(profileId);
     }
@@ -229,7 +236,11 @@ public sealed partial class ToolbarPageViewModel : ObservableObject, IDisposable
     [ObservableProperty] private PaletteTabItem? _selectedTab;
     [ObservableProperty] private bool _showTabRow;
 
-    partial void OnProfileSearchChanged(string value) => VisibleProfiles.Query = value;
+    partial void OnProfileSearchChanged(string value)
+    {
+        VisibleProfiles.Query = value;
+        NotifyMoveChanged();
+    }
     partial void OnPaletteSearchChanged(string value)
     {
         _pendingTabRestore = null;
@@ -303,6 +314,7 @@ public sealed partial class ToolbarPageViewModel : ObservableObject, IDisposable
         // The list box briefly drops its selection while the selected profile is moved (see Reposition).
         if (_repositioning)
             return;
+        NotifyMoveChanged();
         _loading = true;
         ProfileName = value is null ? "" : _loc.DisplayName(value.Profile);
         _loading = false;
@@ -363,6 +375,54 @@ public sealed partial class ToolbarPageViewModel : ObservableObject, IDisposable
         {
             _repositioning = false;
         }
+        NotifyMoveChanged();
+    }
+
+    /// <summary>The profile the selected one would pass going <paramref name="direction"/>, among those the search shows.</summary>
+    private ToolbarProfile? MoveNeighbor(int direction) =>
+        Profile is { } profile
+            ? ProfileOrder.Neighbor(_store.Profiles, profile, direction, p => VisibleProfiles.Any(v => v.Profile == p))
+            : null;
+
+    private bool CanMoveProfileUp() => MoveNeighbor(-1) is not null;
+    private bool CanMoveProfileDown() => MoveNeighbor(1) is not null;
+
+    /// <summary>
+    /// Moves the selected profile above the profile of its kind shown above it: the higher of two profiles with the
+    /// same extension opens for it (#522). With a search, it passes the one the list shows, not a hidden one.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanMoveProfileUp))]
+    private void MoveProfileUp() => MoveProfile(-1);
+
+    /// <summary>Moves the selected profile below the profile of its kind shown below it.</summary>
+    [RelayCommand(CanExecute = nameof(CanMoveProfileDown))]
+    private void MoveProfileDown() => MoveProfile(1);
+
+    private void MoveProfile(int direction)
+    {
+        if (SelectedProfile is not { } item
+            || ProfileOrder.Move(_store.Profiles, item.Profile, direction, p => VisibleProfiles.Any(v => v.Profile == p)) is not { } move)
+            return;
+        _repositioning = true;
+        try
+        {
+            Profiles.Move(move.From, move.To);
+            SelectedProfile = item;
+        }
+        finally
+        {
+            _repositioning = false;
+        }
+        SaveOwnLibrary();
+        // The remarks under the extensions say which profile comes first; that just changed.
+        RebuildProfileEditor();
+        NotifyMoveChanged();
+    }
+
+    private void NotifyMoveChanged()
+    {
+        MoveProfileUpCommand.NotifyCanExecuteChanged();
+        MoveProfileDownCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>Shows the chips or the check list for the selected profile.</summary>
@@ -464,6 +524,7 @@ public sealed partial class ToolbarPageViewModel : ObservableObject, IDisposable
     internal void PresetEdited(Preset preset)
     {
         StopJudging();
+        _tipsByPreset.Remove(preset.Id);
         foreach (var judging in _judgingByProfile.Values)
             judging.Judged.Remove(preset.Id);
         Commit();
@@ -516,6 +577,7 @@ public sealed partial class ToolbarPageViewModel : ObservableObject, IDisposable
         var item = new ProfileItemViewModel(profile, _loc);
         Profiles.Insert(index, item);
         SelectedProfile = item;
+        NotifyMoveChanged();
     }
 
     [RelayCommand]
@@ -532,6 +594,7 @@ public sealed partial class ToolbarPageViewModel : ObservableObject, IDisposable
         SaveOwnLibrary();
         Profiles.Remove(SelectedProfile!);
         SelectedProfile = Profiles.FirstOrDefault();
+        NotifyMoveChanged();
     }
 
     [RelayCommand]
@@ -573,6 +636,7 @@ public sealed partial class ToolbarPageViewModel : ObservableObject, IDisposable
         foreach (var other in Profiles)
             other.Refresh(_loc);
         RebuildProfileEditor();
+        NotifyMoveChanged();
         ForgetJudgements(item.Profile.Id);
         Rebuild();
     }
@@ -584,6 +648,18 @@ public sealed partial class ToolbarPageViewModel : ObservableObject, IDisposable
         foreach (var item in Profiles)
             item.Refresh(_loc);
         Rebuild();
+    }
+
+    private object? TipFor(Preset preset, PresetUse use, string? reason)
+    {
+        if (preset.IsGroup)
+            return null;
+        if (use != PresetUse.Usable)
+            return reason;
+        if (!_tipsByPreset.TryGetValue(preset.Id, out var tip))
+            _tipsByPreset[preset.Id] = tip =
+                new PresetFormatTip(preset, _availability, _catalog.CreatePlanner, _loc);
+        return tip;
     }
 
     /// <summary>Rebuilds the donut slices (of the face being edited) and the palette from the model.</summary>
@@ -640,7 +716,8 @@ public sealed partial class ToolbarPageViewModel : ObservableObject, IDisposable
             // "GIF  GIF" says nothing twice: only show the format when the name doesn't already.
             if (caption is not null && label.Contains(caption, StringComparison.OrdinalIgnoreCase))
                 caption = null;
-            var chip = new PaletteChip(preset.Id, label, caption, reason, use);
+            var chip = new PaletteChip(preset.Id, label, caption, reason, use)
+            { Tip = TipFor(preset, use, reason) };
             if (use != PresetUse.Unusable)
                 Palette.Add(chip);
             if ((query.Length == 0 && use != PresetUse.Unusable)
@@ -730,7 +807,8 @@ public sealed partial class ToolbarPageViewModel : ObservableObject, IDisposable
             if (query.Length > 0 && !label.Contains(query, StringComparison.CurrentCultureIgnoreCase)
                 && caption?.Contains(query, StringComparison.CurrentCultureIgnoreCase) != true)
                 continue;
-            candidates.Add((new PaletteChip(preset.Id, label, caption, judgement.Reason, judgement.Use),
+            candidates.Add((new PaletteChip(preset.Id, label, caption, judgement.Reason, judgement.Use)
+            { Tip = TipFor(preset, judgement.Use, judgement.Reason) },
                 preset.IsGroup ? PaletteTab.All : TabOf(preset), preset.IsGroup));
         }
         RefreshVisiblePalette(candidates);

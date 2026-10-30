@@ -40,6 +40,23 @@ public sealed class PresetAvailability
         Evaluate(preset, formats, _catalog.CreatePlanner,
             possible => PackageEnabling(possible, p => _catalog.CreatePlanner(p.Package.ConverterIds))).Reason;
 
+    /// <summary>Formats for which this preset is usable, in the input order.</summary>
+    public IReadOnlyList<FileFormat> UsableFormats(Preset preset, IReadOnlyList<FileFormat> formats)
+    {
+        RoutePlanner? installed = null;
+        var packagePlanners = new Dictionary<EnginePackageState, RoutePlanner>();
+        RoutePlanner Installed() => installed ??= _catalog.CreatePlanner();
+        EnginePackageState? Enabling(Func<RoutePlanner, bool> possible) =>
+            PackageEnabling(possible, p => packagePlanners.TryGetValue(p, out var planner)
+                ? planner : packagePlanners[p] = _catalog.CreatePlanner(p.Package.ConverterIds));
+
+        var usable = new List<FileFormat>();
+        foreach (var format in formats)
+            if (Evaluate(preset, [format], Installed, Enabling).Use == PresetUse.Usable)
+                usable.Add(format);
+        return usable;
+    }
+
     private EnginePackageState? PackageEnabling(Func<RoutePlanner, bool> possible, Func<EnginePackageState, RoutePlanner> plannerFor) =>
         _packages.FirstOrDefault(p => !p.IsInstalled && possible(plannerFor(p)));
 
@@ -102,6 +119,16 @@ public sealed class PresetAvailability
                 : new(PresetUse.Unusable, _loc["error.no_route"]);
         }
 
+        // Any picture among the files: the others are left out when the window opens.
+        if (preset.IsImageEditTool)
+            return formats.Any(f => ImageEditTool.CanEdit(f.Id))
+                ? new(PresetUse.Usable, null)
+                : new(PresetUse.Unusable, _loc["error.images_only"]);
+        if (preset.IsHideTool)
+            return formats.Any(f => HideService.CanOpen(f.Id))
+                ? new(PresetUse.Usable, null)
+                : new(PresetUse.Unusable, _loc["error.images_only"]);
+
         if (preset.IsTool)
         {
             if (preset.Id == "tool-sheet-studio")
@@ -139,10 +166,35 @@ public sealed class PresetAvailability
         if (formats.Count == 0)
             return new(PresetUse.Unusable, _loc["error.unsupported_source"]);
 
+        // Resizing, greyscale, trimming or squeezing a file into its own format needs a picture: an MP3 or a ZIP has none.
+        if (preset.TargetFormat == BuiltInData.SameAsSource && preset.Image.EditsPicture)
+        {
+            formats = [.. formats.Where(f => f.Category == FormatCategory.Image)];
+            if (formats.Count == 0)
+                return new(PresetUse.Unusable, _loc["error.images_only"]);
+        }
+
         // "Trim transparent borders" on JPG and other formats without transparency would only re-encode them.
         if (preset.Image.TrimTransparent
             && formats.All(f => !Filee.Engines.Magick.ImageEncoder.HoldsAlpha(preset.TargetFormat == BuiltInData.SameAsSource ? f.Id : preset.TargetFormat)))
             return new(PresetUse.Unusable, _loc["error.no_transparency"]);
+        // "Merge images": ImageMagick reads most pictures as they are; others need a route into PNG first.
+        if (preset.JoinsImages)
+        {
+            if (_catalog.All.OfType<IImageJoiner>().FirstOrDefault() is not { } joiner
+                || preset.TargetFormat != BuiltInData.SameAsSource && !joiner.CanWrite(preset.TargetFormat))
+                return new(PresetUse.Unusable, _loc["error.no_route"]);
+            var pictures = formats.Where(f => f.Category is FormatCategory.Image or FormatCategory.Vector).ToList();
+            if (pictures.Count == 0)
+                return new(PresetUse.Unusable, _loc["error.images_only"]);
+            bool Readable(RoutePlanner planner) => pictures.Any(f => joiner.CanRead(f.Id) || planner.CanConvert(f.Id, "png"));
+            if (Readable(installedPlanner()))
+                return new(PresetUse.Usable, null);
+            return packageEnabling(Readable) is { } reader
+                ? new(PresetUse.NeedsPackage, _loc.Format("engine.reason.needs_package", reader.Name))
+                : new(PresetUse.Unusable, _loc["error.no_route"]);
+        }
+
         // "Merge videos" / "Merge audio" / "Video from images": FFmpeg joins the files, so a route into the target (or,
         // for pictures, into PNG and from PNG into a video) says whether it is installed.
         if (preset.JoinsIntoOneMedia)

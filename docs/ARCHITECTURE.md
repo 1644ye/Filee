@@ -65,6 +65,10 @@
    window, into one file with FFmpeg (`IMediaJoiner`); pictures become PNG through the image engines first. Like the
    other one-file jobs, the output follows "subfolder only for several files", and a join that fails or is cancelled
    is undone by the job's allocator, which deletes only paths that were the job's own.
+   "Merge images" puts the pictures, in the order picked in the same window (with their layout: one under another or
+   side by side, the same width or their own sizes, a gap and a background), into one image with ImageMagick
+   (`IImageJoiner`), in the first picture's format. Pictures ImageMagick doesn't read become PNG first; a merged image
+   over 200 megapixels is refused with its size.
 6. **Report** – progress and results appear in the toast window and in Home → Recent conversions.
    Renderers check only the original source for referenced fonts. `ConversionStep.MissingFonts` reports any missing
    families to `FileResult.MissingFonts`; the toast card can offer one trusted source, while the CLI and watch jobs
@@ -140,7 +144,7 @@ vertical axis in 200 ms, an open group's ring folding first, and halfway, edge-o
 `RadialViewModel` show the other face, so slices, hit tests and drops always belong to the face that is drawn.
 *Reduce animations* swaps the faces at once. `RadialViewModel` builds both faces with the same `PresetAvailability`
 check (the back right after the front is on screen); a face with no slice for the files (or none at all) isn't
-flipped to, and only then does the hub leave out its "Tab ↻ back" hint (a mouse in place of the key when only the
+flipped to, and only then does the hub leave out its "⟳ Tab back" hint (a mouse in place of the key when only the
 wheel flips). In click mode the focused window gets the key (`DonutMenu.HandleKey`) and the donut the wheel. During a
 drag the donut's window has no keyboard focus, so `RadialController` turns on `TriggerService.WatchFlipKey` while
 the drag donut shows files and flips on `FlipKeyPressed` / `FlipWheelTurned`: the global hook only listens (it
@@ -173,7 +177,7 @@ text, vectors, outlines, forms, page labels and document information remain PDF 
   `CropService.LoadPreviewAsync`; nothing is decoded again while dragging. Programmatic changes (reset, a ratio, a
   new picture) ease in with tweens read against the clock, so a lost frame never leaves one half done; dragging and
   arrow-key nudges follow at once, and `PlayAnimations` (from `Motion.Enabled`) turns all of it off.
-- `Controls/AspectDial` is a small donut of the ratios (free, original, 1:1, 4:3, 3:2, 16:9): each slice a
+- `Controls/AspectDial` is a small donut of the ratios (free, original, 1:1, 5:4, 4:3, 3:2, 16:9): each slice a
   `RingSegment` button that answers only inside its wedge (`DonutGeometry.Wedge`, rounded by the softness), the hub
   swaps portrait and landscape. A with the pointer over the stage opens it around the pointer, as the donut opens,
   growing from its middle and kept inside the window; A without a pointer there (the keyboard) and its toolbar button
@@ -336,6 +340,18 @@ can't be received through Avalonia; for a browser drag Filee reads the address a
 registers too (see "Files dragged from a web browser"). A click-mode donut opened for a later launch or the service forgives one loss of
 focus within a second of opening (`ActivationGrace`): Filee becoming the active app can take focus away from it.
 
+A keyboard shortcut with `TriggerGesture.Clipboard` reads the clipboard instead of the selection
+(`IPlatformServices.ReadClipboard`, `MacOSClipboard`): copied files (file URLs, then `NSFilenamesPboardType`; copied
+files that are gone give nothing, not Finder's icon), else a picture (`PasteboardPaths.PictureTypes`, PNG first, TIFF
+last). With neither on the clipboard the shortcut does nothing — it never falls back to the file manager's selection,
+which for an Everywhere shortcut could sit in a Finder window in the background. A picture becomes a one-item `WebDrop`
+with `SaveOnlyConverted`, so it is saved into the browser-drop folder when it converts and only the result stays. The
+donut's jobs are started with `toClipboard`, and `ConversionService` puts their outputs back on the clipboard when they
+finish (`CopyToClipboard`: a file URL per item, a single picture also as itself; the log also carries how many files
+failed). No shortcut has `Clipboard` on by default and no settings migration adds one: the global hook can't hold the
+keys back, so a preset combination would also reach the app in front (Shift + Cmd + V is Paste and Match Style in most
+text fields). Whoever wants it turns the switch on in Settings → Shortcuts for a shortcut with keys of their own choosing.
+
 The donut, the toast and the notices are transparent windows. On Windows Filee keeps Avalonia's rendering defaults
 (ANGLE on Direct3D 11 composed through WinUI composition, then DirectComposition, then the window's redirection
 surface; software rendering when Direct3D 11 fails): each of them keeps per-pixel transparency. The log says what was
@@ -444,7 +460,9 @@ have no semibold) instead of the app's embedded Noto fonts.
   counts as installed when `uninstall.exe` (or 1.x's `unins000.exe`) is next to it (`UpdateService.IsInstalled`).
 - **Uninstall**: `uninstall.exe` is Setup without its payload. Run from the install folder it copies itself to
   `%TEMP%` and waits for the copy, which removes what `uninstall.json` lists (other files in the folder stay), the
-  shortcuts, the PATH entry and the key. Files in use are moved out and deleted at the next restart.
+  shortcuts, the PATH entry and the key. Files in use are moved out and deleted at the next restart. A program without
+  a payload is the uninstaller only as `uninstall.exe`, as `Filee.Setup.exe` (a development build) or with `/UNINSTALL`
+  (`SetupStart`); any other name is a Setup.exe whose download didn't finish, and it says so instead (exit code 1).
 - **Command line**: Inno Setup's switches (`SetupOptions`, documented at the top of the file), because Filee 1.x
   updates itself with `/SILENT /NORESTART` and winget passes `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`. Exit codes as
   Inno Setup's: 0 done, 1 could not start, 2 cancelled before installing (also a declined UAC prompt), 4 failed.

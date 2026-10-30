@@ -12,24 +12,24 @@ Filee chooses engines automatically. Settings → *Engines* shows their status, 
 | PDFsharp | built in (library) | images → PDF, merge, split, page ranges, page organising, lossless rotate and crop-box edits, spreadsheet print-studio assembly, **compression** (smaller PDFs, see below), PDFs without their metadata |
 | PDFium | built in (library) | PDF → images (multi-page TIFF/GIF supported) |
 | Unhwp | built in (library) | HWP/HWPX → TXT, Markdown, HTML (pictures in a `<name>_files` folder next to the Markdown, embedded in the HTML) |
-| Text & Markdown (Markdig) | built in (library) | **Markdown → HTML, TXT**; **TXT, LOG, PY, PAC, BAT, COMMAND, LUA, CSS, PS1 → UTF-8 TXT**, preserving source text without running scripts (and → PDF / DOCX through the HWPX writer, rhwp or LibreOffice) |
+| Text & Markdown (Markdig) | built in (library) | **Markdown → HTML, TXT**; **TXT, LOG, PY, PAC, BAT, CMD, COMMAND, LUA, CSS, PS1, SQL, AHK, INI, RSC → UTF-8 TXT**, preserving source text without running scripts (and → PDF / DOCX through the HWPX writer, rhwp or LibreOffice) |
 | Spreadsheets (ExcelDataReader for XLS) | built in (library) | **XLSX, XLS, ODS, CSV, TSV → XLSX, ODS, CSV, TSV** (one CSV / TSV per sheet) |
 | Office Open XML | built in | **DOCM / DOTX / DOTM ↔ DOCX, XLSM / XLTX ↔ XLSX, PPTM / POTX / POTM / PPSX ↔ PPTX** (macros removed for macro-free types) |
-| Fonts | built in | **TTF, OTF, WOFF, WOFF2, EOT ↔ each other**; CFF (PostScript) outlines become TrueType for TTF and EOT |
+| Fonts | built in | **TTF, OTF, WOFF, WOFF2, EOT ↔ each other**; **FON (NE monochrome FNT v2/v3, supported single-byte charsets) → TTF, OTF, WOFF, WOFF2, EOT only**; CFF (PostScript) outlines become TrueType for TTF and EOT |
 | **HWPX writer** | built in | **DOCX (+ DOCM/DOTX/DOTM), XLSX (+ XLSM/XLTX), XLS, ODS, CSV, TSV, PPTX (+ PPTM/POTX/POTM/PPSX), PDF, OFD, HTML, MHTML, EPUB, MOBI/AZW3, FB2, HWPX, TXT, Markdown → HWPX** (and with rhwp → PDF and images); ODT, RTF, reStructuredText, LaTeX → HWPX with Pandoc |
 | **DOCX writer** | built in | **HWPX (and HWP through rhwp), PDF, OFD, HTML, MHTML, EPUB, MOBI/AZW3, FB2, Markdown, TXT, XLSX, XLS, ODS, CSV, PPTX (+ variants) → DOCX** |
 | PDF text | built in (PdfPig) | **PDF → TXT, Markdown** (reading order, also two columns; Markdown keeps headings, emphasis, links and the pictures; no OCR) |
 | PDF slides | built in (PDFium, PdfPig) | **PDF → PPTX**: a picture of each page on its own slide (looks like the PDF, not editable), the page's text in the speaker notes |
 | PDF tables | built in (PdfPig) | **PDF → XLSX, ODS, CSV** (#267): each table drawn with lines on its own sheet, numbers and dates as real values, merged cells and column widths kept |
 | E-mail | built in (MimeKit, MsgReader) | **EML, Outlook MSG → HTML** (headers + body, inline pictures), **TXT**, **ZIP** (the attachments); **MSG → EML**; **MHTML → HTML** (the saved page in one file, pictures inlined; on to PDF, DOCX, HWPX, TXT, Markdown, EPUB from there) |
-| Data | built in (System.Text.Json, YamlDotNet, Tomlyn, System.Xml) | **JSON, JSON Lines, YAML, TOML, XML, CSV ↔ each other** (CSV for tables); **vCard, iCalendar ↔ CSV**; spreadsheets, contacts and events reach JSON / YAML / TOML / XML through CSV |
+| Data | built in (System.Text.Json, YamlDotNet, Tomlyn, System.Xml) | **JSON, JSON Lines, YAML, TOML, XML, CSV ↔ each other** (CSV for tables); **vCard, iCalendar ↔ CSV**; FreeMASTER oscilloscope TXT → CSV; spreadsheets, contacts and events reach JSON / YAML / TOML / XML through CSV |
 | **E-books** | built in | **EPUB, MOBI/AZW/AZW3/PRC, FB2, HTMLZ, TXTZ → EPUB, HWPX (→ PDF), TXT, HTML, Markdown, FB2, HTMLZ, TXTZ**; HTML, Markdown, TXT, DOCX → EPUB/FB2/HTMLZ/TXTZ; HTML → TXT; comics CBZ/CBR/CB7/CBT/CBC → PDF, EPUB, CBZ; PDF → CBZ; AZW4 → PDF; **EPUB ↔ KEPUB** (Kobo) |
 | CAD (ACadSharp + built-in renderer) | built in (library) | **DWG ↔ DXF**; DWG/DXF → **PDF** (vector), **SVG**, PNG, JPG, WEBP, TIFF, BMP, GIF, ICO, AVIF |
 | **Subtitles** | built in | **SRT, ASS/SSA, WebVTT, SAMI (SMI), LRC, TTML, MicroDVD, SCC → SRT, ASS, WebVTT, SAMI, LRC, TTML, MicroDVD**, always UTF-8 (Korean CP949 / EUC-KR files read correctly) |
 | 3D models (SharpGLTF for glTF) | built in (library) | **GLB, glTF, STL, OBJ (+ MTL), 3MF, PLY ↔ each other**; FBX → each of them; → PNG, JPG, … (an isometric preview) |
-| **Geospatial vector data** | built in | **GeoJSON, KML, KMZ, GPX, Shapefile ↔ each other and CSV** (longitude / latitude or WKT); projected Shapefiles (UTM, Web Mercator, Lambert, Albers) are converted to WGS 84; through CSV to XLSX, JSON, … (see below) |
+| **Geospatial vector data** | built in | **GeoJSON, KML, KMZ, GPX, Shapefile ↔ each other and CSV** (longitude / latitude or WKT); Garmin FIT (activities, read only) → each of them and CSV; projected Shapefiles (UTM, Web Mercator, Lambert, Albers) are converted to WGS 84; through CSV to XLSX, JSON, … (see below) |
 | rhwp | bundled with the installer (`engines/rhwp`, with the Microsoft C++ runtime, see below) | HWP/HWPX → PDF, **HWP → HWPX, HWPX → HWP** |
-| Archives (7-Zip) | bundled with the installer (`engines/7zip`, ~2.5 MB) + built-in readers | ZIP (including ANSYS Workbench WBPZ), 7Z, RAR, TAR (+ GZ/BZ2/XZ/Z/7Z/LZ), CAB, ISO, DMG, … **→ folder, ZIP, 7Z, TAR, TAR.GZ/BZ2/XZ**; ALZ, EGG, lzip read in-process; "Compress into one archive" for any files |
+| Archives (7-Zip) | bundled with the installer (`engines/7zip`, ~2.5 MB) + built-in readers | ZIP (including ANSYS Workbench WBPZ), 7Z, RAR, TAR (+ GZ/BZ2/XZ/Z/7Z/LZ), CAB, ISO, DMG, split (.001), … **→ folder, ZIP, 7Z, TAR, TAR.GZ/BZ2/XZ**; ALZ, EGG, lzip read in-process; "Compress into one archive" for any files |
 | LibreOffice + H2Orestart + Java | **optional download** (~420 MB, 1.3 GB on disk) | older and rare formats only: DOC, XLS, PPT, RTF and OpenDocument → PDF and to each other, output as DOCX/ODT/ODS/ODP; HWP/HWPX → DOCX/ODT; read-only formats (see below) → PDF and their kind's editable formats; FODT, OpenDocument templates (OTT, OTS, OTP) and XLT out; SVG → EMF/WMF/ODG, a PDF page → SVG |
 | Pandoc | **optional download** (~42 MB, 240 MB on disk) | Markdown ↔ DOCX/ODT/RTF, DOCX/ODT/HTML/RTF → Markdown, HTML ↔ DOCX/ODT, markup languages (reStructuredText, LaTeX, Org, AsciiDoc, Typst, MediaWiki, DocBook, Jupyter, Textile, man, OPML) ↔ Markdown/HTML/DOCX/ODT and each other (and → RTF, EPUB, TXT), Markdown and markup → PPTX slides |
 | Ghostscript | **optional download** (~20 MB, 31 MB on disk) | EPS/PS → PDF, PDF → EPS/PS, PostScript-based AI → PDF (images through PDF and PDFium); smaller PDFs when a preset asks for it |
@@ -96,7 +96,8 @@ they can be installed or removed later in Settings → *Engines*. A conversion t
   install root, so uninstalling removes them.
 - LibreOffice and calibre come as MSIs and are unpacked with an administrative install (`msiexec /a`): files only,
   no registry entries, no admin rights. LibreOffice's help, gallery and most dictionaries are removed afterwards
-  (~500 MB).
+  (~500 MB). msiexec gets the real paths of the package, the target and its log: the Windows Installer service won't
+  follow a junction a user made (error 1620 or 1622, #527), as when `AppData\Local` was moved to another drive.
 - Ghostscript comes from conda-forge (Artifex publishes only an NSIS installer): a `.conda` package is a zip with a
   zstd tarball, of which only `Library/bin` is unpacked (SharpCompress; `fetch-engines.ps1` uses Windows' `tar.exe`).
   Its fonts and resources are compiled into `gsdll64.dll`. The Microsoft C++ runtime it was built against
@@ -196,7 +197,8 @@ pinned source in `build/build-linux-native.py` like rhwp (PR #113 did this for S
     still picture through PNG.
 - **More raster formats** through ImageMagick's own coders, each checked against `MagickNET.SupportedFormats` and
   converted there and back in `ImageFormatTests`: QOI, MNG (animated), DDS (DXT block compression, which is lossy; of
-  a texture with mipmaps the largest image is read), PCX, CUR (at most 256 × 256, larger pictures are scaled down), XPM,
+  a texture with mipmaps the largest image is read; uncompressed 32-bit pixels stored R, G, B, A, which ImageMagick
+  reads with red and blue swapped, are swapped back when converting and in the crop tool), PCX, CUR (at most 256 × 256, larger pictures are scaled down), XPM,
   XBM and WBMP (1-bit), PAM, PFM, SGI (`.sgi`, `.rgb`, `.rgba`, `.bw`, always read as SGI; ImageMagick would take
   `.rgb` for headerless pixels), Sun Raster (`.ras`, `.sun`) and MIFF. XBM, WBMP, PFM, PCX and Sun Raster are written
   without transparency (flattened onto the preset's background): PFM has none, and the alpha planes ImageMagick can
@@ -461,7 +463,8 @@ built-in XLSX route reads the workbook into Filee's document model.
 ## Fonts
 
 Fonts are converted in-process (`Filee.Engines/Fonts`); zlib and Brotli come with .NET. The input format is
-recognised by content, so a mislabelled file still converts.
+recognised by content, so a mislabelled file still converts. FON is the exception: it is chosen by its `.fon`
+extension, and the file must then have an NE header with FNT resources.
 
 - **WOFF 1.0**: every table zlib-compressed (stored as-is when that isn't smaller). Lossless both ways.
 - **WOFF2**: one Brotli stream at the highest quality with the glyf/loca transform and, where it applies, the hmtx
@@ -481,12 +484,28 @@ recognised by content, so a mislabelled file still converts.
   CID fonts) are built; head, hhea, hmtx and, from VORG, vmtx are updated; CFF, VORG and DSIG are dropped; every
   other table (cmap, name, OS/2, GSUB, GPOS, kern, ...) is kept. PostScript hints are not converted: the font gets a
   gasp table (smoothing at every size) and a prep that switches on dropout control instead.
+- **FON → TTF, OTF, WOFF, WOFF2, EOT** (input only): Filee reads the monochrome FNT v2/v3 bitmap resources of an NE
+  executable and turns each lit pixel into a straight, grid-aligned TrueType outline. The result retains the
+  original pixel shape, per-glyph advance, ascent and baseline; there is no smoothing or curve tracing. A FON with a
+  single font resource produces `Name.ttf` (or the corresponding OTF/WOFF/WOFF2/EOT extension). Several resources
+  produce one file per strike, such as `Name-13px.ttf`, `Name-13px-Bold.ttf`, `Name-13px-2.ttf` and
+  `Name-14px.ttf`; the font family names distinguish heights, group different styles at the same height, and number
+  only repeated styles at the same height. Existing output files follow the usual Skip, Rename and Overwrite
+  policies independently for each strike. Invalid resources fail the whole input before output files are allocated.
+  Character mapping uses the Windows single-byte code page indicated by the resource charset, not the computer's
+  locale. Undefined bytes (including those that Windows decodes to Private Use code points in the Greek, Hebrew,
+  Baltic and Thai code pages), non-round-tripping bytes and Unicode control characters retain their glyphs and
+  spacing but receive no text mapping; charset hints cannot recover the meaning of custom glyphs. PE resources, vector or
+  externally stored bitmaps, color FNT, standalone `.fnt` files and double-byte or unrecognized charsets are not
+  supported. FON cannot be an output format.
 - Not supported: CFF2 (variable) outlines to TTF or EOT (to WOFF, WOFF2 and OTF they convert), writing font
   collections, and WOFF/WOFF2 extended metadata (dropped).
 
 `tests/Filee.Engines.Tests/FontTests.cs` checks every conversion with small OFL fonts in
 `tests/Filee.Engines.Tests/Fonts` (see `OFL.txt` there): round trips keep every table byte for byte, a WOFF2 made
 by Google's encoder decodes to the source font, and converted CFF glyphs are compared with the originals in Skia.
+`tests/Filee.Engines.Tests/FonTests.cs` builds synthetic FON samples in code (`FonBuilder`) and compares every
+rendered glyph with its source bitmap.
 
 ## DOCX writer
 
@@ -778,8 +797,12 @@ in the preset library only). Video and audio need FFmpeg.
   is encoded to AAC.
 - **Merge videos** copies the clips with the concat demuxer only when all share the codec setup (ffprobe's extradata
   hash), size, pixel format, frame rate, turn and kind of sound; otherwise every clip is fitted into the first clip's
-  frame and encoded, a clip without sound silent for its length. **Merge audio** always decodes and joins the sound
+  frame and encoded, a clip without sound silent for its length. Sound tracks FFmpeg can't decode are skipped: each
+  clip gives its first track FFmpeg can decode, and the clips are copied only when that track has the same number in
+  every clip. **Merge audio** always decodes and joins the sound
   into one M4A, so no encoder padding or gap is left between files. Both are in `Media/MediaJoining.cs`.
+  As a special case, a pair of self-contained `.m4s` files, one with only video and one with only audio, is muxed
+  together into one MP4 without re-encoding (in either order). Both codecs and the preset's settings must allow copying.
 - **Video from images**: each picture is fitted into 1920 × 1080 as a JPEG, then shown for the preset's seconds with
   crossfades (`xfade`) of 1 s, at most half a picture's time, or cuts. At most `MediaOptions.MaxSlides` (300)
   pictures, not counting downloads that failed; the queue refuses more before any is converted. A filter graph too
@@ -974,6 +997,13 @@ and writes the files; Filee's own renderer draws them with SkiaSharp (one drawin
   follow the insert's layer). White and near-white (ACI 7, which AutoCAD shows white on black) draw black on the white
   page. Line weights are plotted in millimetres ("Default" as a thin 0.18 mm line); line types become dash patterns
   scaled by LTSCALE, the entity's scale and the block scale (shapes and text inside complex line types are omitted).
+- **Colours of the output** (preset, CAD drawing card, for PDF, SVG and image targets; #411): *As drawn* (above),
+  *Black and white* or *Grayscale*. Black and white draws every line, curve, text, dimension, hatch pattern line,
+  point, arrowhead, SOLID/TRACE and wide polyline in black, like a plot with monochrome.ctb. Filled hatches (solid,
+  gradient and the tint of a too dense pattern) are not filled black, which would hide whatever lies on a light
+  background colour: they become the gray of their brightness (Rec. 601 luma), so a light fill stays light and a black
+  one black. Grayscale gives every colour the gray of its brightness; lines and text are scaled to 0–160 so the
+  lightest (yellow) still prints as a mid gray. The page stays white. Applied while drawing, so PDF and SVG stay vector.
 - **Layers**: off, frozen and non-plotting layers (including Defpoints) are not drawn, like a plot. A frozen layer
   hides a whole block reference; an OFF one only its layer-0 contents.
 - **Fonts**: drawings name SHX fonts, which are not available, so text uses the text style's TrueType font when it is
@@ -1052,7 +1082,7 @@ binary 7.4 and 7.5, plain and compressed arrays, ASCII): a cube under a moved pa
 templated material and an embedded or neighbouring texture, Z-up files in metres, rotation orders, concave polygons and
 materials by polygon, and every cut or flipped byte of a file, which must read or fail with a clear message.
 
-## Geospatial data (GeoJSON, KML / KMZ, GPX, Shapefile, CSV)
+## Geospatial data (GeoJSON, KML / KMZ, GPX, Shapefile, CSV, FIT)
 
 `Filee.Engines/Geo` converts geospatial **vector** data between GeoJSON, KML, KMZ, GPX, Shapefile and CSV in managed
 code, with no GDAL and no download. Every reader fills one in-memory model (`GeoModel`: features, each with an optional
@@ -1084,6 +1114,36 @@ What each format keeps:
 | GPX | 1.0 and 1.1; waypoints (Point), routes (LineString), tracks (LineString, or MultiLineString for several segments); `name`, `cmt`, `desc`, `src`, `sym`, `type`, `number`, `time`; `ele` as the height; `gpx_type` says which of the three a feature was | points as waypoints, lines as one track (several lines are its segments) or, with `gpx_type` = route, as routes; polygon outlines as tracks; only the fields on the left survive |
 | Shapefile | Point, MultiPoint, PolyLine, Polygon and their Z types; rings sorted into polygons and holes by direction and containment; `.dbf` text, numbers, true / false, dates; deleted rows skipped; MultiPatch is refused | one Shapefile per kind of geometry present; Z types when any height is present; WGS 84 `.prj`; `.dbf` in UTF-8 with a `.cpg` |
 | CSV | a `wkt` / `geom` / `geometry` / `the_geom` column (WKT or EWKT), or longitude and latitude columns (`lon`, `lng`, `long`, `longitude`, `x`; `lat`, `latitude`, `y`; a decimal comma is fine), and `elevation` / `alt` / `z`; other columns become attributes, typed; rows without a usable location are kept without a geometry | `longitude`, `latitude` (+ `elevation`) when every geometry is a point, else a `wkt` column; then the attributes. A dataset that already has a longitude or latitude attribute gets `wkt` so the file reads back unchanged |
+| FIT | Garmin activity files: the positions of the `record` messages (with their time and height) as one LineString, or a Point when there is only one, with the sport as the feature's type | not written |
+
+**FIT activities.** A Garmin FIT activity (from a watch or bike computer) is read only. Its recorded positions become
+one track (a single point when only one position was recorded); a time or a height is kept on the points that have one
+and never made up for the others. The feature gets the sport as its `type` attribute and the start as its `time`
+attribute: the earliest session start, else the first record time (for a single point, that point's time). Each target
+keeps what it can:
+
+- **GPX**: a track (a waypoint for a single position) with `<time>` and `<ele>` on the points that have them, and the
+  sport as `<type>`. A track has no start time of its own, but its points keep their times: only when no point has a
+  time and the activity has a start does a notice say the start was left out.
+- **KML / KMZ**: a Point for a single position. A track is a `gx:Track` when every point has a time and a height;
+  otherwise a LineString, with the point times in a `coordTimes` `Data` entry when any point has one. `type` and `time`
+  are `ExtendedData`.
+- **GeoJSON**: a Point or a LineString, with the point times in a `coordTimes` property when any point has one, beside
+  `type` and `time`.
+- **Shapefile**: the point times are left out; `type` and `time` are `.dbf` columns. When only some points have a
+  height, the heights are dropped with a notice.
+- **CSV**: one row per record that has a time, a position or a sensor value, nine columns: `time` (UTC, ISO 8601),
+  `longitude` and `latitude` (degrees), `elevation` (m), `heart_rate` (bpm), `cadence` (rpm), `power` (W), `speed`
+  (m/s), `distance` (m). An empty cell means the value wasn't recorded or was marked invalid, or the position was out of
+  range.
+
+Left out: heart rate sent in its own messages outside the records, developer fields, laps and pauses (the track isn't
+split at them), pace, FIT files that aren't activities (courses, settings, monitoring), chained FIT files (several FIT
+files joined into one), and files with a bad CRC, which are refused. A file may be up to 64 MiB and 2,000,000
+records.
+
+**Privacy.** The outputs carry positions, times and health values such as heart rate exactly as the watch recorded them.
+Check what you share.
 
 **Coordinate systems.** Geographic systems (degrees) and the projections most projected data uses, read from a `.prj`
 (ESRI or OGC WKT 1), a GeoJSON `crs` name or an EPSG code: Transverse Mercator (UTM, Gauss-Krüger, state plane, via
@@ -1277,6 +1337,7 @@ bundled with the installer), never a 7-Zip installed on the PC. It runs as a sep
 | GZ, BZ2, XZ | 7-Zip | 7-Zip; one file only (from another single-file format, or "Compress into one archive" with one file) |
 | LZMA, Z | 7-Zip | — |
 | RAR 4/5, CAB, CPIO, DEB, RPM, DMG, ISO, IMG, LHA/LZH, ARJ | 7-Zip (an RPM's payload is unpacked until the files appear) | — |
+| Split archives (.001, .7z.001, .zip.001, .tar.001) | 7-Zip (combining .002, .003 … automatically) | — |
 | ALZ (ALZip) | Filee: store, deflate and ALZip's bzip2 variant | — |
 | EGG (ALZip) | Filee: store, deflate, bzip2, LZMA (decoded by 7-Zip); several blocks per file | — |
 
@@ -1410,6 +1471,18 @@ or slower; its frames are all kept.
 CRI USM (`.usm`, read only, #485), the video of many games' cutscenes, is read by FFmpeg's `usm` demuxer and goes to
 every video and audio target like the other read-only containers. Encrypted USM files (common in recent games) can't
 be read and fail with FFmpeg's error.
+A self-contained `.m4s` (read only, #354), a fragmented MP4 that starts with `ftyp` + `moov` and then holds
+`styp` / `sidx` / `moof` / `mdat` fragments (GPAC and some downloaders save them), is read by FFmpeg's mp4 demuxer
+and goes to every video and audio target. A DASH media segment, whose top-level boxes reach a `moof` before any
+`moov`, plays only with a separate init segment; Filee refuses it before FFmpeg runs, with its own message
+(`error.m4s_needs_init`), instead of FFmpeg's demuxer error.
+Dahua DVR / NVR recordings (`.dav`, read only, #594) are read by FFmpeg's `dhav` demuxer, which finds them by the
+`DHAV` chunks they are made of, and go to every video and audio target. Their H.264 / H.265 video is copied where
+the target and preset allow it (`CanCopyVideo`), like any other container's; G.711 sound is encoded for targets that
+can't hold it. The chunks carry the camera's wall-clock time, so FFmpeg reports the recording date as the start time;
+the output starts at zero.
+Bink videos (`.bik`, read only, #751), the cutscene format of many games, are read by FFmpeg's `bink` demuxer and
+decoder and go to every video and audio target. FFmpeg has no Bink encoder, so nothing writes `.bik`.
 A Video CD's `MPEGAV/AVSEQ01.DAT` (MPEG-1 in a RIFF/CDXA wrapper) counts as MPEG: `.dat` is an extension of that
 format, and FFmpeg reads what the file holds, so a `.dat` with no video in it fails instead of making a file.
 
@@ -1442,6 +1515,9 @@ format, and FFmpeg reads what the file holds, so a `.dat` with no video in it fa
 
   Read only (FFmpeg's decoders): APE (Monkey's Audio), Musepack (MPC), TAK, DSF and DFF (DSD), DTS, Speex (SPX) and the
   formats above. No encoder for them is in the build, or (DTS) only an experimental one.
+  Apple Voice Memos recordings (`.qta`, read only, #646) are QuickTime audio: FFmpeg's mov demuxer reads them and
+  they go to every audio target, from the first audio track FFmpeg can decode, like any other source
+  (iOS 26 memos also carry a spatial APAC track FFmpeg has no decoder for).
 
 - **Rewrapping instead of re-encoding.** When the target container takes the source's codecs as they are
   (`MediaEncoding.Remuxable`: H.264/HEVC + AAC, ALAC, AC-3, E-AC-3 or MP3 for MP4/M4V/MOV, also ProRes and PCM for
@@ -1506,7 +1582,9 @@ format, and FFmpeg reads what the file holds, so a `.dat` with no video in it fa
   subtitle engine (ASS and WebVTT extraction cost 11 so SRT is the hub).
 - The first video stream (cover pictures excluded) is converted. Video to video keeps every audio track (languages,
   commentary), each copied where the target takes its codec or encoded on its own, with its language tag; FLV and DV
-  hold one and keep the first. Video to audio takes the first. Files without sound still convert to video. Title, artist
+  hold one and keep the first. Video to audio takes the first. Tracks FFmpeg can't decode (no decoder, like the spatial
+  APAC track of iPhone recordings, or a codec ffprobe can't name) are skipped, unless the file has no other sound; the
+  clip window's waveform, *Remove silence* and clip music take the same track. Files without sound still convert to video. Title, artist
   and other tags and chapters are kept, album art too for MP3, M4A, M4B and FLAC. Portrait phone videos are turned
   upright. Odd sizes are evened out, frame rates that MPEG-2/MXF/MPEG-4 part 2 cannot store are converted, and channels
   WMA or AMR cannot hold are mixed down.

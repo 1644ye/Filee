@@ -41,3 +41,7 @@ and referenced definitions only when Ctrl is held. It transfers them locally thr
 Serve the repository root over localhost and open `tests/browser-extension/svg-drag.html` and `tests/browser-extension/image-drag.html` in a browser.
 The page exercises the production script with inherited styles, referenced definitions, drag formats and
 cleanup. A native Chrome-to-Filee drag is a separate integration check.
+
+## Direct video downloads
+Version 0.5.0 also supports Ctrl-drag on HTML video elements with HTTP(S) file sources. Choose Download in Filee. URL query parameters are preserved. Blob/MediaSource streams, HLS/DASH playlists, DRM and authenticated site-specific extraction are not supported. Mobile touch emulation still requires Mobile (no touch) for native dragging.
+

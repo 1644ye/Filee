@@ -79,6 +79,26 @@ public class ICalendarTests(EngineFixture fx) : IClassFixture<EngineFixture>
     }
 
     [Fact]
+    public async Task Duration_crossing_daylight_saving_time_keeps_calendar_days_and_elapsed_hours()
+    {
+        var customZone = string.Join("\r\n", "BEGIN:VTIMEZONE", "TZID:Custom/Spring", "BEGIN:DAYLIGHT",
+            "DTSTART:20260308T020000", "TZOFFSETFROM:-0500", "TZOFFSETTO:-0400", "END:DAYLIGHT", "END:VTIMEZONE");
+        var rows = await ReadCalendar(Calendar(customZone,
+            Event("spring-clock", "DTSTART;TZID=America/New_York:20260308T013000", "DURATION:PT2H"),
+            Event("spring-day", "DTSTART;TZID=America/New_York:20260308T013000", "DURATION:P1D"),
+            Event("spring-24h", "DTSTART;TZID=America/New_York:20260308T013000", "DURATION:PT24H"),
+            Event("spring-mixed", "DTSTART;TZID=America/New_York:20260307T013000", "DURATION:P1DT2H"),
+            Event("fall-clock", "DTSTART;TZID=America/New_York:20261101T003000", "DURATION:PT2H"),
+            Event("custom", "DTSTART;TZID=Custom/Spring:20260308T013000", "DURATION:PT2H")));
+        Assert.Equal("2026-03-08T04:30:00-04:00", Cell(rows, 1, "End"));
+        Assert.Equal("2026-03-09T01:30:00-04:00", Cell(rows, 2, "End"));
+        Assert.Equal("2026-03-09T02:30:00-04:00", Cell(rows, 3, "End"));
+        Assert.Equal("2026-03-08T04:30:00-04:00", Cell(rows, 4, "End"));
+        Assert.Equal("2026-11-01T01:30:00-05:00", Cell(rows, 5, "End"));
+        Assert.Equal("2026-03-08T04:30:00-04:00", Cell(rows, 6, "End"));
+    }
+
+    [Fact]
     public async Task Outlook_windows_zone_custom_zone_unknown_rules_and_recurrence_instance()
     {
         var fixedZone = string.Join("\r\n", "BEGIN:VTIMEZONE", "TZID:Customized Time Zone", "BEGIN:STANDARD",
@@ -127,6 +147,38 @@ public class ICalendarTests(EngineFixture fx) : IClassFixture<EngineFixture>
         Assert.EndsWith("+01:00", Cell(rows, 2, "Start"));
         Assert.EndsWith("+02:00", Cell(rows, 3, "Start"));
         Assert.EndsWith("+03:00", Cell(rows, 4, "Start"));
+    }
+
+    [Fact]
+    public async Task Custom_zone_with_second_offsets_keeps_instants_and_duration()
+    {
+        var zone = string.Join("\r\n", "BEGIN:VTIMEZONE", "TZID:Custom/Seconds", "BEGIN:STANDARD",
+            "DTSTART:19000101T000000", "TZOFFSETFROM:+001932", "TZOFFSETTO:+001932", "END:STANDARD",
+            "BEGIN:DAYLIGHT", "DTSTART:19000601T020000", "TZOFFSETFROM:+001932", "TZOFFSETTO:+012032",
+            "END:DAYLIGHT", "END:VTIMEZONE");
+        var rows = await ReadCalendar(Calendar(zone,
+            Event("before", "DTSTART;TZID=Custom/Seconds:19000601T013000", "DURATION:PT2H"),
+            Event("after", "DTSTART;TZID=Custom/Seconds:19000601T040000",
+                "DTEND;TZID=Custom/Seconds:19000601T050000")));
+
+        Assert.Equal("1900-06-01T01:10:28Z", Cell(rows, 1, "Start"));
+        Assert.Equal("1900-06-01T03:10:28Z", Cell(rows, 1, "End"));
+        Assert.Equal("1900-06-01T02:39:28Z", Cell(rows, 2, "Start"));
+        Assert.Equal("1900-06-01T03:39:28Z", Cell(rows, 2, "End"));
+    }
+
+    [Theory]
+    [InlineData("+001932", "1900-06-01T11:40:28Z")]
+    [InlineData("-003015", "1900-06-01T12:30:15Z")]
+    [InlineData("+1500", "1900-05-31T21:00:00Z")]
+    [InlineData("+053000", "1900-06-01T12:00:00+05:30")]
+    public async Task Custom_offset_is_exported_without_losing_its_instant(string offset, string expected)
+    {
+        var zone = string.Join("\r\n", "BEGIN:VTIMEZONE", "TZID:Custom/Fixed", "BEGIN:STANDARD",
+            "DTSTART:19000101T000000", "TZOFFSETFROM:" + offset, "TZOFFSETTO:" + offset,
+            "END:STANDARD", "END:VTIMEZONE");
+        var rows = await ReadCalendar(Calendar(zone, Event("fixed", "DTSTART;TZID=Custom/Fixed:19000601T120000")));
+        Assert.Equal(expected, Cell(rows, 1, "Start"));
     }
 
     [Fact]

@@ -20,22 +20,33 @@ public sealed class TriggerService : IDisposable
     private readonly ILogger<TriggerService> _log;
     private readonly GestureDetector _detector = new();
     private readonly string _ownProcess = Process.GetCurrentProcess().ProcessName;
-    private EventLoopGlobalHook? _hook;
+    private QueuedGlobalHook? _hook;
     private Thread? _hookThread;
-    private readonly Func<EventLoopGlobalHook> _createHook;
+    private readonly Func<QueuedGlobalHook> _createHook;
     private GnomePointerBridge? _gnomeBridge;
     private GnomePointerInput? _gnomeInput;
     private HashSet<string> _excluded = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>FILEE_TRACE_GESTURES=1 logs each mouse press and scope decision, to find why a gesture doesn't fire.</summary>
+    /// <summary>
+    /// FILEE_TRACE_GESTURES=1 logs each mouse press and scope decision, to find why a gesture doesn't fire, each
+    /// release with how far the mouse went while held, each drag gesture that fired and each time the gestures are set
+    /// again (a press waiting to become a drag is dropped then, #739), and on Windows each mouse move that reached
+    /// Filee late (a stuck cursor, #511).
+    /// </summary>
     private static readonly bool Trace = Environment.GetEnvironmentVariable("FILEE_TRACE_GESTURES") == "1";
 
+    /// <summary>A mouse move this late (ms) goes to the trace: the clock itself is only 16 ms exact.</summary>
+    private const long LateMove = 50;
+
+    // For the trace: where the last press was, and the held moves since it (the hook thread only).
+    private int _pressX, _pressY, _heldMoves, _farthest;
+
     public TriggerService(IPlatformServices platform, ILogger<TriggerService> log)
-        : this(platform, log, () => new EventLoopGlobalHook(useBackgroundThreadForEventLoop: true))
+        : this(platform, log, () => new QueuedGlobalHook())
     {
     }
 
-    internal TriggerService(IPlatformServices platform, ILogger<TriggerService> log, Func<EventLoopGlobalHook> createHook)
+    internal TriggerService(IPlatformServices platform, ILogger<TriggerService> log, Func<QueuedGlobalHook> createHook)
     {
         _platform = platform;
         _log = log;
@@ -43,7 +54,12 @@ public sealed class TriggerService : IDisposable
         _detector.SystemDragThreshold = platform.SystemDragThreshold;
         _detector.ScopeFilter = InScope;
 
-        _detector.DragStarted += (g, x, y) => Post(() => DragStarted?.Invoke(this, new GestureEventArgs(g, x, y)));
+        _detector.DragStarted += (g, x, y) =>
+        {
+            if (Trace)
+                _log.LogInformation("Trace: drag gesture {Gesture} fired at {X},{Y}", g.Kind, x, y);
+            Post(() => DragStarted?.Invoke(this, new GestureEventArgs(g, x, y)));
+        };
         _detector.DragEnded += (x, y) => Post(() => DragEnded?.Invoke(this, new GestureEventArgs(null, x, y)));
         _detector.HoldTriggered += (g, x, y) => Post(() => SelectionGesture?.Invoke(this, new GestureEventArgs(g, x, y)));
         _detector.KeyChordTriggered += (g, x, y) => Post(() => SelectionGesture?.Invoke(this, new GestureEventArgs(g, x, y)));
@@ -128,6 +144,8 @@ public sealed class TriggerService : IDisposable
 
     public void Apply(AppSettings settings)
     {
+        if (Trace)
+            _log.LogInformation("Trace: gestures set again ({Count})", settings.Triggers.Count(g => g.Enabled));
         _detector.Configure(settings.Triggers.Where(g => _platform.SupportsSelectionShortcut || g.Kind == TriggerKind.Drag).ToList());
         _detector.Paused = settings.Paused;
         _flipKey = settings.Donut.EffectiveFlipKey(settings.Triggers);
@@ -185,11 +203,15 @@ public sealed class TriggerService : IDisposable
                 if (Trace)
                     _log.LogInformation("Trace: press {Button} at {X},{Y}, mask {Mask} = {Modifiers}", e.Data.Button, e.Data.X, e.Data.Y, e.RawEvent.Mask, Map(e.RawEvent.Mask));
                 var (x, y) = ButtonPoint(e);
+                (_pressX, _pressY, _heldMoves, _farthest) = (x, y, 0, 0);
                 _detector.MouseDown(Map(e.Data.Button), x, y, Map(e.RawEvent.Mask));
             };
             _hook.MouseReleased += (_, e) =>
             {
                 var (x, y) = ButtonPoint(e);
+                if (Trace)
+                    _log.LogInformation("Trace: release {Button} at {X},{Y} after {Moves} held move(s), at most {Farthest} px from the press",
+                        e.Data.Button, x, y, _heldMoves, _farthest);
                 _detector.MouseUp(Map(e.Data.Button), x, y);
             };
             _hook.MouseDragged += (_, e) => OnMove(e);
@@ -221,7 +243,8 @@ public sealed class TriggerService : IDisposable
                     NotifyStatus();
                 }
             })
-            { IsBackground = true, Name = "Filee global input" };
+            // Highest: Windows holds every mouse move until this thread has queued it (#511). It does nothing else.
+            { IsBackground = true, Name = "Filee global input", Priority = ThreadPriority.Highest };
             _hookThread.Start();
         }
         catch (Exception ex)
@@ -307,8 +330,17 @@ public sealed class TriggerService : IDisposable
 
     private void OnMove(MouseHookEventArgs e)
     {
+        // How long Windows held the cursor for Filee (#511): the event's time is in Unix milliseconds there.
+        if (Trace && OperatingSystem.IsWindows()
+            && DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - (long)e.RawEvent.Time is > LateMove and var late)
+            _log.LogInformation("Trace: a mouse move reached Filee {Late} ms late", late);
         (_estX, _estY) = (e.Data.X, e.Data.Y);
         LastCursor = (e.Data.X, e.Data.Y);
+        if (Trace && HeldButton(e.RawEvent.Mask) != TriggerMouseButton.None)
+        {
+            _heldMoves++;
+            _farthest = Math.Max(_farthest, Math.Max(Math.Abs(e.Data.X - _pressX), Math.Abs(e.Data.Y - _pressY)));
+        }
         _detector.MouseMove(e.Data.X, e.Data.Y, Map(e.RawEvent.Mask), HeldButton(e.RawEvent.Mask));
     }
 

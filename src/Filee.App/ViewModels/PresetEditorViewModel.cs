@@ -20,6 +20,15 @@ public interface IChoice
     string? Detail { get; }
 }
 
+/// <summary>The unit of a picture's size range in the preset editor (#662); the preset itself keeps megabytes.</summary>
+public enum FileSizeUnit
+{
+    /// <summary>1,000 bytes.</summary>
+    KB,
+    /// <summary>1,000,000 bytes.</summary>
+    MB,
+}
+
 /// <summary>A value with a localized label for combo boxes.</summary>
 public sealed record Choice<T>(T Value, string Label, string? Detail = null) : IChoice
 {
@@ -91,7 +100,9 @@ public sealed partial class PresetEditorViewModel : ObservableObject
             .Select(l => new Choice<string>(l.Code, l.NativeName,
                 OcrLanguages.IsInstalled(l.Code) || vision.Reads(l.Code) ? null
                     : loc.Format("presets.ocr_language_size", $"{l.Size / 1_000_000.0:0.#} MB")))];
-        Locations = Enum.GetValues<OutputLocation>().Select(v => new Choice<OutputLocation>(v, loc[$"presets.location.{v}"])).ToList();
+        // "Ask every time" (#521) is a bool of its own on the preset (OutputRule.AskEveryTime): its choice has no location.
+        Locations = [.. Enum.GetValues<OutputLocation>().Select(v => new Choice<OutputLocation?>(v, loc[$"presets.location.{v}"])),
+            new Choice<OutputLocation?>(null, loc["presets.location.Ask"])];
         Conflicts = Enum.GetValues<ConflictPolicy>().Select(v => new Choice<ConflictPolicy>(v, loc[$"presets.conflict.{v}"])).ToList();
         TiffCompressions = Enum.GetValues<TiffCompression>().Select(v => new Choice<TiffCompression>(v, v.ToString().ToUpperInvariant())).ToList();
         FitsTiffModes = Enum.GetValues<FitsTiffMode>().Select(v => new Choice<FitsTiffMode>(v, loc[$"presets.fits_tiff.{v}"])).ToList();
@@ -107,13 +118,16 @@ public sealed partial class PresetEditorViewModel : ObservableObject
         // Version names stay as AutoCAD calls them, in every language.
         CadVersions = Enum.GetValues<CadVersion>().Select(v => new Choice<CadVersion>(v,
             v == Core.Presets.CadVersion.SameAsSource ? loc["presets.cad_version.same"] : "AutoCAD " + v.ToString()["AutoCad".Length..])).ToList();
+        CadColorChoices = Enum.GetValues<CadColors>().Select(v => new Choice<CadColors>(v, loc[$"presets.cad_colors.{v}"])).ToList();
         // A speed set outside the editor (a hand-edited preset file) is offered too, instead of being lost.
         AnimationSpeeds = [.. ImageOptions.AnimationSpeeds.Append(_edit.Image.PlaybackSpeed).Distinct().Order()
             .Select(s => new Choice<double>(s, s == 1 ? loc["presets.animation_speed.original"] : SpeedLabel(s)))];
 
         _name = string.IsNullOrWhiteSpace(_edit.Name) ? loc.DisplayName(_edit) : _edit.Name;
         _target = Targets.FirstOrDefault(t => t.Value == _edit.TargetFormat) ?? Targets[1];
-        _resize = ResizeModes.First(r => r.Value == _edit.Image.Resize);
+        _resize = ResizeModes.First(r => r.Value == (_edit.Image.CustomSize is not null ? ResizeMode.Custom
+            : _edit.Image.ClampedMinShortEdge is not null ? ResizeMode.MinShortEdge
+            : _edit.Image.Resize));
         _rotation = Rotations.FirstOrDefault(r => r.Value == _edit.Image.Rotation) ?? Rotations[0];
         _flip = Flips.FirstOrDefault(f => f.Value == _edit.Image.Flip) ?? Flips[0];
         _pageSize = PageSizes.First(p => p.Value == _edit.Pdf.PageSize);
@@ -124,7 +138,7 @@ public sealed partial class PresetEditorViewModel : ObservableObject
         _pdfPassword = _edit.Pdf.Password;
         _ocr = _edit.Pdf.Ocr;
         _ocrLanguage = OcrLanguageChoices.FirstOrDefault(l => l.Value == _edit.Pdf.OcrLanguage) ?? OcrLanguageChoices[0];
-        _location = Locations.First(l => l.Value == _edit.Output.Location);
+        _location = _edit.Output.AskEveryTime ? Locations[^1] : Locations.First(l => l.Value == _edit.Output.Location);
         _conflict = Conflicts.First(c => c.Value == _edit.Output.Conflict);
         _tiffCompression = TiffCompressions.First(t => t.Value == _edit.Image.TiffCompression);
         _fitsTiffMode = FitsTiffModes.FirstOrDefault(m => m.Value == _edit.Image.FitsTiff) ?? FitsTiffModes[0];
@@ -153,13 +167,25 @@ public sealed partial class PresetEditorViewModel : ObservableObject
         _crossfade = _edit.Media.Crossfade;
         _traceMode = TraceModes.First(m => m.Value == _edit.Trace.Mode);
         _cadVersion = CadVersions.First(v => v.Value == _edit.Cad.Version);
+        _cadColors = CadColorChoices.FirstOrDefault(c => c.Value == _edit.Cad.Colors) ?? CadColorChoices[0];
         _animationSpeed = AnimationSpeeds.First(s => s.Value == _edit.Image.PlaybackSpeed);
         _traceColors = Math.Clamp(_edit.Trace.Colors, TracingOptions.MinColors, TracingOptions.MaxColors);
         _traceDetail = Math.Clamp(_edit.Trace.Detail, 0, 100);
         _quality = _edit.Image.Quality;
+        // In KB when the size that's set (the maximum, else the minimum) is under 1 MB: 0.05 MB reads as 50 KB.
+        var shown = _edit.Image.MaxSizeMb > 0 ? _edit.Image.MaxSizeMb : _edit.Image.MinSizeMb;
+        _imageSizeUnit = SizeUnits[shown is > 0 and < 1 ? 0 : 1];
+        var perMegabyte = _imageSizeUnit.Value == FileSizeUnit.KB ? 1000m : 1m;
+        _imageMaxSize = (decimal)_edit.Image.MaxSizeMb * perMegabyte;
+        _imageMinSize = (decimal)_edit.Image.MinSizeMb * perMegabyte;
+        _videoMaxSizeMb = (decimal)_edit.Media.MaxSizeMb;
         _resizePercent = _edit.Image.ResizePercent;
         _longEdge = _edit.Image.LongEdge;
         _width = _edit.Image.Width;
+        _customWidth = _edit.Image.CustomSize?.Width ?? 1920;
+        _customHeight = _edit.Image.CustomSize?.Height ?? 1080;
+        _lockAspect = _edit.Image.CustomSize?.LockAspect ?? false;
+        _minShortEdge = _edit.Image.ClampedMinShortEdge ?? 1080;
         _setDpi = _edit.Image.Dpi.HasValue;
         _dpi = _edit.Image.Dpi ?? 300;
         _keepMetadata = _edit.Image.KeepMetadata;
@@ -211,7 +237,7 @@ public sealed partial class PresetEditorViewModel : ObservableObject
 
     /// <summary>PDF → PDF: don't compress, or the level (pictures at 72, 150 or 300 dpi).</summary>
     public IReadOnlyList<Choice<PdfCompression>> CompressionLevels { get; }
-    public IReadOnlyList<Choice<OutputLocation>> Locations { get; }
+    public IReadOnlyList<Choice<OutputLocation?>> Locations { get; }
     public IReadOnlyList<Choice<ConflictPolicy>> Conflicts { get; }
     public IReadOnlyList<Choice<TiffCompression>> TiffCompressions { get; }
 
@@ -229,6 +255,9 @@ public sealed partial class PresetEditorViewModel : ObservableObject
     /// <summary>The AutoCAD version a DWG or DXF is written in (CadOptions.Version, #489).</summary>
     public IReadOnlyList<Choice<CadVersion>> CadVersions { get; }
 
+    /// <summary>The colours a drawing is drawn in: as drawn, black and white, grayscale (CadOptions.Colors, #411).</summary>
+    public IReadOnlyList<Choice<CadColors>> CadColorChoices { get; }
+
     /// <summary>Playback speeds of animations, 0.25× to 4× (ImageOptions.AnimationSpeed).</summary>
     public IReadOnlyList<Choice<double>> AnimationSpeeds { get; }
 
@@ -240,12 +269,13 @@ public sealed partial class PresetEditorViewModel : ObservableObject
         nameof(ShowFitsTiff), nameof(ShowFitsDebayer),
         nameof(ShowZipResult), nameof(ShowPdf), nameof(ShowPdfBuild), nameof(ShowDocument), nameof(ShowLeaveOutPictures), nameof(ShowPdfSplit), nameof(ShowPdfCombine),
         nameof(ShowPdfCompression), nameof(ShowPdfCompressionOptions), nameof(ShowOcr), nameof(ShowPageSize), nameof(ShowPdfTablesNote),
-        nameof(ShowMedia), nameof(ShowMediaQuality), nameof(ShowMaxHeight), nameof(ShowAudioBitrate), nameof(ShowRemoveAudio),
+        nameof(ShowMedia), nameof(ShowMediaQuality), nameof(ShowMaxHeight), nameof(ShowVideoMaxSize), nameof(ShowAudioBitrate), nameof(ShowRemoveAudio),
         nameof(ShowAudioChannels), nameof(ShowWav), nameof(VideoCodecs), nameof(VideoCodecChoice), nameof(ShowVideoCodec), nameof(ShowHardwareEncoding),
         nameof(AudioCodecs), nameof(AudioCodecChoice), nameof(ShowAudioCodec),
         nameof(ShowArchive), nameof(ShowArchiveOptions), nameof(ShowExtractNote),
-        nameof(ShowSaveEveryFrame), nameof(ShowAnimationSpeed), nameof(ShowTrace), nameof(ShowCad), nameof(ShowExtractMotionPhoto), nameof(ShowSlideshow),
-        nameof(ShowLivePhotoChoice), nameof(LivePhotoKinds), nameof(LivePhotoChoice), nameof(IsLivePhoto), nameof(LivePhotoHint))]
+        nameof(ShowSaveEveryFrame), nameof(ShowAnimationSpeed), nameof(ShowTrace), nameof(ShowCad), nameof(ShowCadColors), nameof(ShowExtractMotionPhoto), nameof(ShowSlideshow),
+        nameof(ShowLivePhotoChoice), nameof(LivePhotoKinds), nameof(LivePhotoChoice), nameof(IsLivePhoto), nameof(LivePhotoHint),
+        nameof(ShowImageSize), nameof(SizeRangeError), nameof(IsValid))]
     private Choice<string> _target;
 
     private LivePhotoKind _livePhotoValue;
@@ -272,7 +302,7 @@ public sealed partial class PresetEditorViewModel : ObservableObject
                 return;
             _livePhotoValue = value.Value;
             OnPropertyChanged();
-            foreach (var name in (string[])[nameof(IsLivePhoto), nameof(LivePhotoHint), nameof(ShowImage), nameof(ShowPdf), nameof(ShowSaveEveryFrame)])
+            foreach (var name in (string[])[nameof(IsLivePhoto), nameof(LivePhotoHint), nameof(ShowImage), nameof(ShowPdf), nameof(ShowSaveEveryFrame), nameof(ShowImageSize), nameof(SizeRangeError), nameof(IsValid)])
                 OnPropertyChanged(name);
         }
     }
@@ -363,7 +393,7 @@ public sealed partial class PresetEditorViewModel : ObservableObject
         }
     }
 
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowPercent), nameof(ShowLongEdge), nameof(ShowWidth))]
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowPercent), nameof(ShowLongEdge), nameof(ShowWidth), nameof(ShowCustom), nameof(ShowMinShortEdge))]
     private Choice<ResizeMode> _resize;
 
     [ObservableProperty] private Choice<ImageRotation> _rotation;
@@ -373,7 +403,7 @@ public sealed partial class PresetEditorViewModel : ObservableObject
     private Choice<PdfPageSize> _pageSize;
 
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowSubfolder), nameof(ShowCustomFolder))]
-    private Choice<OutputLocation> _location;
+    private Choice<OutputLocation?> _location;
 
     [ObservableProperty] private Choice<ConflictPolicy> _conflict;
     [ObservableProperty] private Choice<TiffCompression> _tiffCompression;
@@ -382,9 +412,41 @@ public sealed partial class PresetEditorViewModel : ObservableObject
     /// <summary>FITS → other pictures: debayer a colour camera's raw frame (ImageOptions.FitsDebayer).</summary>
     [ObservableProperty] private bool _fitsDebayer;
     [ObservableProperty] private int _quality;
+
+    /// <summary>A picture's size range (#553, #662) in <see cref="ImageSizeUnit"/>; 0 or empty = none.</summary>
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(SizeRangeError), nameof(IsValid))] private decimal? _imageMinSize;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(SizeRangeError), nameof(IsValid))] private decimal? _imageMaxSize;
+
+    /// <summary>KB or MB, for both ends of the range; not saved (the preset keeps megabytes).</summary>
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(SizeFormat), nameof(SizeIncrement))] private Choice<FileSizeUnit> _imageSizeUnit;
+
+    public IReadOnlyList<Choice<FileSizeUnit>> SizeUnits { get; } =
+        [new(FileSizeUnit.KB, "KB"), new(FileSizeUnit.MB, "MB")];
+
+    /// <summary>Every byte shows: 50.5 KB, or a precise size saved before.</summary>
+    public string SizeFormat => ImageSizeUnit.Value == FileSizeUnit.KB ? "0.####" : "0.#######";
+    public decimal SizeIncrement => ImageSizeUnit.Value == FileSizeUnit.KB ? 10 : 0.5m;
+
+    /// <summary>4096 MB in either unit, as the video's box: what the boxes show is what is saved.</summary>
+    public decimal SizeMaximum => ImageSizeUnit.Value == FileSizeUnit.KB ? 4_096_000 : 4096;
+
+    /// <summary>The size range's boxes are shown (not for a Live / Motion Photo, nor a format without a quality).</summary>
+    public bool ShowImageSize => ShowImage && ShowQuality;
+
+    /// <summary>A minimum over the maximum, while the boxes are shown; a maximum of 0 is no maximum.</summary>
+    public string? SizeRangeError => ShowImageSize && ImageMaxSize > 0 && ImageMinSize > ImageMaxSize ? _loc["presets.size_range_invalid"] : null;
+
+    /// <summary>"Size limit (MB)" for a video (0 = none, #553).</summary>
+    [ObservableProperty] private decimal? _videoMaxSizeMb;
     [ObservableProperty] private int _resizePercent;
     [ObservableProperty] private int _longEdge;
     [ObservableProperty] private int _width;
+    [ObservableProperty] private int _customWidth;
+    [ObservableProperty] private int _customHeight;
+    /// <summary>With Custom: keep each file's shape and fit inside, instead of stretching (ImageOptions.LockAspect).</summary>
+    [ObservableProperty] private bool _lockAspect;
+    /// <summary>With MinShortEdge: the shortest the shorter edge may be (ImageOptions.MinShortEdge).</summary>
+    [ObservableProperty] private int _minShortEdge;
     [ObservableProperty] private bool _setDpi;
     [ObservableProperty] private int _dpi;
     [ObservableProperty]
@@ -507,16 +569,35 @@ public sealed partial class PresetEditorViewModel : ObservableObject
 
     [ObservableProperty] private int _traceColors;
     [ObservableProperty] private Choice<CadVersion> _cadVersion;
+    [ObservableProperty] private Choice<CadColors> _cadColors;
     [ObservableProperty] private int _traceDetail;
     [ObservableProperty] private Choice<double> _animationSpeed;
 
     // A combo box that loses its selection sets null: every choice keeps its value (see Choices.Restore).
     partial void OnTargetChanged(Choice<string>? oldValue, Choice<string> newValue) => Choices.Restore(oldValue, newValue, v => Target = v);
+
+    /// <summary>
+    /// Both ends keep their size in the other unit: 500 KB becomes 0.5 MB. The boxes' maximum is raised before the
+    /// values grow and lowered after they shrink, so a box never cuts a value to the other unit's maximum.
+    /// </summary>
+    partial void OnImageSizeUnitChanged(Choice<FileSizeUnit>? oldValue, Choice<FileSizeUnit> newValue)
+    {
+        if (Choices.Restore(oldValue, newValue, v => ImageSizeUnit = v) || oldValue is null || oldValue.Value == newValue.Value)
+            return;
+        var toKilobytes = newValue.Value == FileSizeUnit.KB;
+        if (toKilobytes)
+            OnPropertyChanged(nameof(SizeMaximum));
+        var factor = toKilobytes ? 1000m : 0.001m;
+        ImageMinSize *= factor;
+        ImageMaxSize *= factor;
+        if (!toKilobytes)
+            OnPropertyChanged(nameof(SizeMaximum));
+    }
     partial void OnResizeChanged(Choice<ResizeMode>? oldValue, Choice<ResizeMode> newValue) => Choices.Restore(oldValue, newValue, v => Resize = v);
     partial void OnRotationChanged(Choice<ImageRotation>? oldValue, Choice<ImageRotation> newValue) => Choices.Restore(oldValue, newValue, v => Rotation = v);
     partial void OnFlipChanged(Choice<ImageFlip>? oldValue, Choice<ImageFlip> newValue) => Choices.Restore(oldValue, newValue, v => Flip = v);
     partial void OnPageSizeChanged(Choice<PdfPageSize>? oldValue, Choice<PdfPageSize> newValue) => Choices.Restore(oldValue, newValue, v => PageSize = v);
-    partial void OnLocationChanged(Choice<OutputLocation>? oldValue, Choice<OutputLocation> newValue) => Choices.Restore(oldValue, newValue, v => Location = v);
+    partial void OnLocationChanged(Choice<OutputLocation?>? oldValue, Choice<OutputLocation?> newValue) => Choices.Restore(oldValue, newValue, v => Location = v);
     partial void OnConflictChanged(Choice<ConflictPolicy>? oldValue, Choice<ConflictPolicy> newValue) => Choices.Restore(oldValue, newValue, v => Conflict = v);
     partial void OnTiffCompressionChanged(Choice<TiffCompression>? oldValue, Choice<TiffCompression> newValue) =>
         Choices.Restore(oldValue, newValue, v => TiffCompression = v);
@@ -531,6 +612,7 @@ public sealed partial class PresetEditorViewModel : ObservableObject
     partial void OnArchiveLevelChanged(Choice<ArchiveLevel>? oldValue, Choice<ArchiveLevel> newValue) => Choices.Restore(oldValue, newValue, v => ArchiveLevel = v);
     partial void OnTraceModeChanged(Choice<TracingMode>? oldValue, Choice<TracingMode> newValue) => Choices.Restore(oldValue, newValue, v => TraceMode = v);
     partial void OnCadVersionChanged(Choice<CadVersion>? oldValue, Choice<CadVersion> newValue) => Choices.Restore(oldValue, newValue, v => CadVersion = v);
+    partial void OnCadColorsChanged(Choice<CadColors>? oldValue, Choice<CadColors> newValue) => Choices.Restore(oldValue, newValue, v => CadColors = v);
     partial void OnCompressionLevelChanged(Choice<PdfCompression>? oldValue, Choice<PdfCompression> newValue) =>
         Choices.Restore(oldValue, newValue, v => CompressionLevel = v);
     partial void OnAnimationSpeedChanged(Choice<double>? oldValue, Choice<double> newValue) =>
@@ -607,6 +689,10 @@ public sealed partial class PresetEditorViewModel : ObservableObject
     public bool ShowAudioCodec => AudioCodecs.Count > 1;
     public bool ShowMediaQuality => TargetIsLossyMedia;
     public bool ShowMaxHeight => TargetIsVideo;
+    /// <summary>A size limit for a converted video; a clip is cut, not fitted.</summary>
+    public bool ShowVideoMaxSize => TargetCategory == FormatCategory.Video && !_original.IsClipTool
+        // Not where nothing fits it: a join or slideshow, or VOB and DV, which have a fixed bitrate.
+        && !_original.Media.JoinIntoOne && !_isSlideshow && TargetId is not ("vob" or "dv");
     public bool ShowAudioBitrate => TargetIsLossyMedia;
     public bool ShowRemoveAudio => TargetIsVideo;
     public bool ShowArchive => TargetCategory == FormatCategory.Archive;
@@ -632,16 +718,27 @@ public sealed partial class PresetEditorViewModel : ObservableObject
 
     /// <summary>The AutoCAD version, for presets that write DWG or DXF.</summary>
     public bool ShowCad => !IsTool && TargetId is "dxf" or "dwg";
+
+    /// <summary>The colours, for the targets a DWG or DXF is drawn into: PDF, SVG and pictures.</summary>
+    public bool ShowCadColors => !IsTool && (TargetId is "pdf" or "svg" || TargetCategory == FormatCategory.Image);
     public bool ShowTraceColors => TraceMode.Value == TracingMode.Color;
     public bool ShowPercent => Resize.Value == ResizeMode.Percent;
     public bool ShowLongEdge => Resize.Value == ResizeMode.LongEdge;
     public bool ShowWidth => Resize.Value == ResizeMode.Width;
+    public bool ShowCustom => Resize.Value == ResizeMode.Custom;
+    public bool ShowMinShortEdge => Resize.Value == ResizeMode.MinShortEdge;
     public bool ShowMargin => PageSize.Value != PdfPageSize.FitImage;
     public bool ShowSubfolder => Location.Value == OutputLocation.Subfolder;
     public bool ShowCustomFolder => Location.Value == OutputLocation.CustomFolder;
 
+    /// <summary>An emptied box is no limit; at most 4 GB, the largest file FAT32 (and many sites) take.</summary>
+    private static double SizeLimit(decimal? megabytes) => (double)Math.Clamp(megabytes ?? 0, 0, 4096);
+
     public string? NameError => string.IsNullOrWhiteSpace(Name) ? _loc["presets.name_required"] : null;
-    public bool IsValid => NameError is null;
+    public bool IsValid => NameError is null && SizeRangeError is null;
+
+    /// <summary>A size from the range's boxes in megabytes.</summary>
+    private decimal? Megabytes(decimal? size) => ImageSizeUnit.Value == FileSizeUnit.KB ? size / 1000 : size;
 
     /// <summary>Writes the edits into the original preset. Returns false if the input is invalid.</summary>
     public bool Apply()
@@ -656,7 +753,31 @@ public sealed partial class PresetEditorViewModel : ObservableObject
         _original.TargetFormat = TargetId;
         var image = _original.Image;
         image.Quality = Math.Clamp(Quality, 1, 100);
-        image.Resize = Resize.Value;
+        // Only where the field is shown, as with SaveEveryFrame below: a limit left behind by a JPG target fits nothing.
+        image.MaxSizeMb = ShowQuality ? SizeLimit(Megabytes(ImageMaxSize)) : 0;
+        image.MinSizeMb = ShowImageSize ? SizeLimit(Megabytes(ImageMinSize)) : 0;
+        if (Resize.Value == ResizeMode.Custom)
+        {
+            // Custom sizing is stored as CustomSize with Resize None, never as a resize name an older version rejects
+            // (it would read presets.json as broken and fall back to the built-in presets, and the next save would
+            // write those over the user's own; issue #576).
+            image.Resize = ResizeMode.None;
+            image.CustomSize = new CustomImageSize { Width = Math.Clamp(CustomWidth, CustomImageSize.MinSide, CustomImageSize.MaxSide), Height = Math.Clamp(CustomHeight, CustomImageSize.MinSide, CustomImageSize.MaxSide), LockAspect = LockAspect };
+            image.MinShortEdge = null;
+        }
+        else if (Resize.Value == ResizeMode.MinShortEdge)
+        {
+            // Stored the same way, as MinShortEdge with Resize None (issue #652).
+            image.Resize = ResizeMode.None;
+            image.CustomSize = null;
+            image.MinShortEdge = Math.Clamp(MinShortEdge, CustomImageSize.MinSide, CustomImageSize.MaxSide);
+        }
+        else
+        {
+            image.Resize = Resize.Value;
+            image.CustomSize = null;
+            image.MinShortEdge = null;
+        }
         // Only images and PDFs are turned; for any other target a rotation left over from an earlier target would make
         // every file fail ("can only turn images") with nothing on screen to turn it off.
         image.Rotation = CanTurn ? Rotation.Value : ImageRotation.None;
@@ -724,6 +845,7 @@ public sealed partial class PresetEditorViewModel : ObservableObject
         var media = _original.Media;
         media.Quality = MediaQuality.Value;
         media.MaxHeight = MaxHeight.Value;
+        media.MaxSizeMb = ShowVideoMaxSize ? SizeLimit(VideoMaxSizeMb) : 0;
         media.AudioBitrateKbps = AudioBitrate.Value;
         media.RemoveAudio = RemoveAudio;
         media.AudioChannels = AudioChannels.Value;
@@ -755,11 +877,16 @@ public sealed partial class PresetEditorViewModel : ObservableObject
         _original.Trace.Mode = TraceMode.Value;
         _original.Trace.Colors = Math.Clamp(TraceColors, TracingOptions.MinColors, TracingOptions.MaxColors);
         _original.Trace.Detail = Math.Clamp(TraceDetail, 0, 100);
-        // Only where it is shown: a version chosen for DWG and left behind by a PNG target is not kept.
+        // Only where they are shown: a version chosen for DWG and left behind by a PNG target is not kept, nor
+        // black and white chosen for PDF and left behind by a DWG target.
         _original.Cad.Version = ShowCad ? CadVersion.Value : default;
+        _original.Cad.Colors = ShowCadColors ? CadColors.Value : default;
 
         var output = _original.Output;
-        output.Location = Location.Value;
+        // Asking keeps the location it had: a Filee that can't ask (or one from before it) saves there.
+        output.AskEveryTime = Location.Value is null;
+        if (Location.Value is { } location)
+            output.Location = location;
         output.SubfolderName = string.IsNullOrWhiteSpace(SubfolderName) ? "converted" : SubfolderName.Trim();
         // Only with a subfolder, where it is offered: a box ticked there must not stay on hidden behind another location.
         output.SubfolderOnlyForSeveralFiles = ShowSubfolder && SubfolderOnlyForSeveralFiles;

@@ -122,6 +122,7 @@
     if (overlay) overlay.style.pointerEvents = "auto";
     let svg = hit?.closest("svg");
     while (svg?.parentElement?.closest("svg")) svg = svg.parentElement.closest("svg");
+    const video = hit?.closest("video");
     let picture = hit?.closest("img");
     // Hero banners often place a sibling link over the entire picture. Look through
     // that link within its own card, never through dialogs or unrelated controls.
@@ -140,8 +141,8 @@
         if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom) picture = images[0];
       }
     }
-    const selection = !svg && !picture ? codeSelection(x, y) : null;
-    const target = svg || picture || selection?.target;
+    const selection = !svg && !picture && !video ? codeSelection(x, y) : null;
+    const target = svg || video || picture || selection?.target;
     if (target === original && (selection?.text || null) === selectedCode) return;
     clear();
     if (!target) return;
@@ -150,16 +151,22 @@
     try {
       if (selection) selectedCode = selection.text;
       else if (svg) prepared = snapshot(svg);
-      else imageUrl = pictureAddress(picture);
+      else if (video) {
+        const address = video.currentSrc || video.src || video.querySelector("source[src]")?.src;
+        const url = new URL(address || "", video.baseURI);
+        if (!address || !/^https?:$/.test(url.protocol) || /\.(m3u8|mpd)(?:$|[?#])/i.test(url.href))
+          throw new Error("This video uses a segmented, local or protected stream; direct download is unavailable.");
+        imageUrl = url.href;
+      } else imageUrl = pictureAddress(picture);
     }
     catch (error) { console.warn("Filee SVG drag:", error.message); return; }
     original = target;
     // A text drag must not advertise a synthetic image/virtual file ahead of the selected code.
-    const image = document.createElement(selectedCode ? "div" : "img");
+    const image = document.createElement(selectedCode || video ? "div" : "img");
     image.alt = "";
     image.setAttribute("aria-hidden", "true");
     image.draggable = true;
-    if (!selectedCode) image.src = imageUrl || "data:image/svg+xml;charset=utf-8," + encodeURIComponent(prepared);
+    if (!selectedCode && !video) image.src = imageUrl || "data:image/svg+xml;charset=utf-8," + encodeURIComponent(prepared);
     image.title = "Ctrl + drag to Filee";
     image.style.cssText = `position:fixed!important;left:${box.left}px!important;top:${box.top}px!important;` +
       `width:${box.width}px!important;height:${box.height}px!important;margin:0!important;padding:0!important;` +
@@ -183,9 +190,13 @@
         event.dataTransfer.setData("text/html", prepared);
         event.dataTransfer.setData("DownloadURL", "image/svg+xml:image.svg:" + image.src);
       } else {
-        const standalone = document.createElement("img");
+        const standalone = document.createElement(video ? "video" : "img");
         standalone.src = imageUrl;
         event.dataTransfer.setData("text/html", standalone.outerHTML);
+        if (video) {
+          const ext = /\.(webm|mov|mkv|avi|mp4)(?:$|[?#])/i.exec(imageUrl)?.[1]?.toLowerCase() || "mp4";
+          event.dataTransfer.setData("DownloadURL", `video/${ext}:video.${ext}:${imageUrl}`);
+        }
         event.dataTransfer.setData("text/uri-list", imageUrl);
         event.dataTransfer.setData("text/plain", imageUrl);
       }

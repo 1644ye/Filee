@@ -1,6 +1,7 @@
 // Usage text of the "filee" command.
 
 using System.Reflection;
+using Filee.Core.Watching;
 
 namespace Filee.Cli;
 
@@ -13,8 +14,10 @@ internal static class Help
     {
         "convert" => Convert,
         "watch" => Watch,
-        "formats" => "Usage: filee formats [<format>]\n\nLists every format, or what one format converts to.\n",
-        "presets" => "Usage: filee presets\n\nLists the presets saved in Filee (built-in and your own).\n",
+        "formats" => "Usage: filee formats [<format>] [--json]\n\nLists every format, or what one format converts to.\n" +
+                     "With --json, prints the same as JSON (for scripts and other programs).\n",
+        "presets" => "Usage: filee presets [--json]\n\nLists the presets saved in Filee (built-in and your own).\n" +
+                     "With --json, prints the same as JSON (for scripts and other programs).\n",
         _ => General,
     };
 
@@ -25,8 +28,8 @@ internal static class Help
           filee convert <files or folders...> --to <format> [options]
           filee convert <files or folders...> --preset <preset> [options]
           filee watch <folder> --to <format> [options]
-          filee formats [<format>]
-          filee presets
+          filee formats [<format>] [--json]
+          filee presets [--json]
           filee help [<command>]
           filee version
 
@@ -61,7 +64,7 @@ internal static class Help
 
         """;
 
-    private const string Watch = """
+    private static string Watch => FormattableString.Invariant($"""
         Usage: filee watch <folder> (--to <format> | --preset <preset>) [options]
 
         Converts files that land in the folder until Ctrl+C. Files are converted once they are complete (no
@@ -74,10 +77,10 @@ internal static class Help
           -r, --recursive        Also watch sub folders (their files keep the sub folder in the output)
               --move-originals   Move converted sources to <folder>\originals; files already waiting are
                                  converted at start
-              --settle <seconds> How long a file must stay unchanged (default 2)
+              --settle <seconds> How long a file must stay unchanged (default {FolderWatcher.DefaultSettleTime.TotalSeconds})
               --keep-dates       Give converted files the created and modified dates of the originals
               --zip              Save the result of each file as one ZIP (a Shapefile's files together)
               --quiet            Print nothing but errors
 
-        """;
+        """);
 }

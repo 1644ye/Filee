@@ -34,6 +34,8 @@ public sealed class MacOSPlatformServices : IPlatformServices
 
     public TrashRefusal? MoveToTrash(string path) => NativeMethods.MoveToTrash(path);
 
+    public string? ShortcutTarget(string path) => NativeMethods.AliasTarget(path);
+
     public bool IsFileManagerAt(int x, int y) =>
         string.Equals(ProcessNameAt(x, y), "Finder", StringComparison.OrdinalIgnoreCase);
 
@@ -59,6 +61,12 @@ public sealed class MacOSPlatformServices : IPlatformServices
             throw new InvalidOperationException($"Could not read Finder selection. Allow Filee to control Finder in System Settings > Privacy & Security > Automation. {ex.Message}", ex);
         }
     }
+
+    public bool SupportsClipboard => true;
+
+    public ClipboardContent? ReadClipboard() => MacOSClipboard.Read();
+
+    public bool CopyToClipboard(IReadOnlyList<string> paths) => MacOSClipboard.Write(paths);
 
     // AppKit exposes no public system drag-distance preference; match its usual four-point threshold.
     public int SystemDragThreshold => 4;
