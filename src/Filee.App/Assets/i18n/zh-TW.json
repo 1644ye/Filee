@@ -1,7 +1,4 @@
 {
-  "triggers.svg_code_drag": "SVG 程式碼拖曳喚醒",
-  "triggers.svg_code_drag_hint": "選取完整 SVG 程式碼，按住 Ctrl 拖曳即可喚醒圓盤。需啟用 Ctrl 拖曳手勢；Chrome 配套擴充功能可協助不支援文字拖曳的網頁。關閉不影響圖片和檔案拖曳。",
-
   "app.name": "Filee",
   "app.tagline": "拖一拖，放一放，轉換完成。",
 

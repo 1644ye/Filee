@@ -11,7 +11,6 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Filee.Core.Platform;
 using Filee.Core.Web;
-using Filee.Core.Settings;
 
 namespace Filee.App.Services;
 
@@ -23,8 +22,7 @@ internal static class BrowserDrags
         BrowserDragFormats.UniformResourceLocatorW, BrowserDragFormats.UniformResourceLocator, BrowserDragFormats.MozUrl,
         BrowserDragFormats.NetscapeUrl, BrowserDragFormats.UriList, BrowserDragFormats.DownloadUrlFormat,
         BrowserDragFormats.MozFilePromiseUrl, BrowserDragFormats.MozFilePromiseName, BrowserDragFormats.MacUrl,
-        BrowserDragFormats.MacUrlName, BrowserDragFormats.Html, BrowserDragFormats.WindowsHtml, BrowserDragFormats.MacHtml,
-        BrowserDragFormats.PlainText, BrowserDragFormats.Svg, BrowserDragFormats.MacSvg,
+        BrowserDragFormats.MacUrlName, BrowserDragFormats.Html, BrowserDragFormats.WindowsHtml, BrowserDragFormats.MacHtml, BrowserDragFormats.PlainText,
     ];
 
     /// <summary>Picture data some browsers put on a drag (macOS, X11), with the extension it is saved with.</summary>
@@ -38,25 +36,11 @@ internal static class BrowserDrags
     /// Whether the drag may hold a file from a browser (an address or a virtual file): cheap, for the drop effect while
     /// dragging over the drop zone.
     /// </summary>
-    private static bool SvgCodeEnabled => AppHost.TryGet<UserDataStore>()?.Settings.BrowserDrops.EnableSvgCodeDrag ?? true;
-
-    internal static bool IsSvgCodeSelection(IDataTransfer data)
-    {
-        // Real files and an explicitly serialized SVG picture are independent of the code-selection toggle.
-        if (data.Contains(DataFormat.File)) return false;
-        var texts = Texts(data);
-        if (texts.ContainsKey(BrowserDragFormats.Svg) || texts.ContainsKey(BrowserDragFormats.MacSvg)) return false;
-        return InlineSvg.ReadMany(new BrowserDragContent { Texts = texts }).Count > 0;
-    }
-
-    public static bool MayOffer(IDataTransfer data)
-    {
-        if (!SvgCodeEnabled && IsSvgCodeSelection(data)) return false;
-        return data.Formats.Any(f => f.Kind == DataFormatKind.Platform
-            && (BrowserDragFormats.FileGroupDescriptorW.Equals(f.Identifier, StringComparison.OrdinalIgnoreCase)
-                || BrowserDragContent.AddressFormatNames.Contains(f.Identifier, StringComparer.OrdinalIgnoreCase)))
-            || InlineSvg.ReadMany(new BrowserDragContent { Texts = Texts(data) }).Count > 0;
-    }
+    public static bool MayOffer(IDataTransfer data) =>
+        data.Formats.Any(f => f.Kind == DataFormatKind.Platform
+                              && (BrowserDragFormats.FileGroupDescriptorW.Equals(f.Identifier, StringComparison.OrdinalIgnoreCase)
+                                  || BrowserDragContent.AddressFormatNames.Contains(f.Identifier, StringComparer.OrdinalIgnoreCase)))
+        || InlineSvg.Read(data.TryGetText()) is not null;
 
     /// <summary>
     /// The files of a drag from a browser (or another app that holds them only in memory), standing as placeholders;
@@ -71,7 +55,6 @@ internal static class BrowserDrags
 
     internal static WebDrop? Read(IDataTransfer data, bool forDrop, string workRoot, Func<string, bool> isTemporary)
     {
-        if (!SvgCodeEnabled && IsSvgCodeSelection(data)) return null;
         var content = Content(data, forDrop, isTemporary);
         if (content is null)
             return null;
@@ -92,17 +75,12 @@ internal static class BrowserDrags
             {
                 // A file on disk is read as it is, unless it is a browser's temporary copy (Firefox writes the dragged
                 // picture into the temp folder): that one is saved like any file from the browser.
-                if ((!hasAddress && !IsChromiumDragFile(path)) || !isTemporary(path) || !File.Exists(path))
+                if (!hasAddress || !isTemporary(path) || !File.Exists(path))
                 {
                     DisposeAll(files);
                     return null;
                 }
-                try { files.Add(WebDropItem.FromTemporaryFile(path, keepOpen: forDrop)); }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                {
-                    // The browser may have removed the temporary file before Drop was delivered.
-                    // Leave it out instead of throwing on the UI thread; other drag formats can still supply it.
-                }
+                files.Add(WebDropItem.FromTemporaryFile(path));
             }
             else if (storageItem is IStorageFile file)
             {
@@ -119,16 +97,10 @@ internal static class BrowserDrags
                 files.Add(WebDropItem.FromStream(entry.Name, _ => throw new IOException("The file's contents weren't handed over.")));
         }
 
-        if (files.Count == 0 && !hasAddress && texts.Count == 0)
+        if (files.Count == 0 && !hasAddress && !texts.ContainsKey(BrowserDragFormats.PlainText))
             return null;
         return new BrowserDragContent { Files = files, Texts = texts, Picture = Picture(data, texts) };
     }
-
-    // Chromium can drop a real temporary file without any URL or HTML (notably data-URL SVGs).
-    // Recognize only its dedicated drag directory, never arbitrary files in the user's temp folder.
-    internal static bool IsChromiumDragFile(string path) => System.Text.RegularExpressions.Regex.IsMatch(
-        Path.GetFileName(Path.GetDirectoryName(path)) ?? "", @"^chrome_drag[0-9]+_[0-9]+$",
-        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
     /// <summary>True for a path in the system's temporary folder (but not in Filee's own work folders).</summary>
     internal static bool IsTemporary(string path)

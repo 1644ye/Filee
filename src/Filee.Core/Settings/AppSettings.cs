@@ -345,7 +345,6 @@ public sealed class DefaultOutputSettings
 /// <summary>Files dragged out of a web browser (Settings → General).</summary>
 public sealed class BrowserDropSettings
 {
-    public bool EnableSvgCodeDrag { get; set; } = true;
     /// <summary>Where they are saved; empty means the user's Downloads folder (looked up each time, as it can move).</summary>
     public string Folder { get; set; } = "";
 
