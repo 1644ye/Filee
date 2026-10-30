@@ -193,10 +193,8 @@
         const standalone = document.createElement(video ? "video" : "img");
         standalone.src = imageUrl;
         event.dataTransfer.setData("text/html", standalone.outerHTML);
-        if (video) {
-          const ext = /\.(webm|mov|mkv|avi|mp4)(?:$|[?#])/i.exec(imageUrl)?.[1]?.toLowerCase() || "mp4";
-          event.dataTransfer.setData("DownloadURL", `video/${ext}:video.${ext}:${imageUrl}`);
-        }
+        // Chrome's DownloadURL creates a separate browser download/temporary file.
+        // Filee owns this transfer; URI-list avoids a second, unfinished history entry.
         event.dataTransfer.setData("text/uri-list", imageUrl);
         event.dataTransfer.setData("text/plain", imageUrl);
       }
