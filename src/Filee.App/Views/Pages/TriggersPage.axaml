@@ -31,6 +31,13 @@
       </WrapPanel>
     </StackPanel>
 
+    <Border Classes="card">
+      <StackPanel Spacing="8">
+        <ToggleSwitch Content="{DynamicResource triggers.svg_code_drag}" IsChecked="{Binding EnableSvgCodeDrag}" />
+        <TextBlock Classes="caption" TextWrapping="Wrap" Text="{DynamicResource triggers.svg_code_drag_hint}" />
+      </StackPanel>
+    </Border>
+
     <ItemsControl ItemsSource="{Binding Gestures}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
@@ -97,6 +104,17 @@
                   </StackPanel>
                 </StackPanel>
               </Grid>
+
+              <!-- Clipboard shortcut: converts the files or the picture on the clipboard and puts the results back -->
+              <DockPanel IsVisible="{Binding UsesClipboard}">
+                <ToggleSwitch DockPanel.Dock="Right" OnContent="{x:Null}" OffContent="{x:Null}" MinWidth="0" Margin="12,0,0,0"
+                              VerticalAlignment="Center" IsChecked="{Binding Clipboard}"
+                              AutomationProperties.Name="{DynamicResource triggers.clipboard}" />
+                <StackPanel Spacing="2">
+                  <TextBlock Text="{DynamicResource triggers.clipboard}" TextWrapping="Wrap" />
+                  <TextBlock Classes="caption" Text="{DynamicResource triggers.clipboard_note}" TextWrapping="Wrap" />
+                </StackPanel>
+              </DockPanel>
 
               <StackPanel IsVisible="{Binding UsesThreshold}">
                 <DockPanel>

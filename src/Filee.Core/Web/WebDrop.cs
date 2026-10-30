@@ -42,6 +42,14 @@ public abstract class WebDropItem : IDisposable
             _ => Task.FromResult<Stream>(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1 << 16, useAsync: true)),
             SizeOf(path), null, null);
 
+    /// <summary>Pin a dropped temporary file until the queue copies it, even if the browser deletes its pathname.</summary>
+    public static WebDropItem FromTemporaryFile(string path, bool keepOpen)
+    {
+        if (!keepOpen) return FromTemporaryFile(path);
+        var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1 << 16, useAsync: true);
+        return FromStream(Path.GetFileName(path), _ => Task.FromResult<Stream>(stream), stream.Length, stream);
+    }
+
     private static long? SizeOf(string path)
     {
         try
@@ -115,6 +123,12 @@ public sealed class WebDrop : IDisposable
 
     /// <summary>This drop's own folder inside the work root.</summary>
     public string WorkFolder { get; }
+
+    /// <summary>
+    /// Whether only the converted file is kept, whatever Settings says (<see cref="WebDropOptions.SaveOnlyConverted"/>);
+    /// null follows Settings. A picture from the clipboard keeps only its result: the original was never a file.
+    /// </summary>
+    public bool? SaveOnlyConverted { get; init; }
 
     /// <summary>The paths the files stand as until they are saved.</summary>
     public IReadOnlyList<string> Placeholders => _placeholders;
@@ -198,7 +212,10 @@ public sealed class WebDrop : IDisposable
 /// <summary>Where files dragged from a browser are saved (Settings → General).</summary>
 /// <param name="Folder">The download folder; "next to the source" means this folder for these files.</param>
 /// <param name="SaveOnlyConverted">The original goes into the work folder and is deleted after the conversion.</param>
-public sealed record WebDropOptions(string Folder, bool SaveOnlyConverted);
+public sealed record WebDropOptions(string Folder, bool SaveOnlyConverted)
+{
+    public IReadOnlyDictionary<string, string>? SavePaths { get; init; }
+}
 
 /// <summary>Saves a <see cref="WebDrop"/>'s files for the job that converts them, and cleans up after it.</summary>
 public sealed class WebDropFetcher(WebDrop drop, WebDropOptions options, WebDownloader downloader) : ISourceFetcher
@@ -221,8 +238,16 @@ public sealed class WebDropFetcher(WebDrop drop, WebDropOptions options, WebDown
 
     public bool Fetches(string path) => drop.Holds(path);
 
-    public Task<string> FetchAsync(string placeholder, IProgress<TransferProgress> progress, CancellationToken cancellationToken) =>
-        drop.ItemFor(placeholder).SaveAsync(SaveFolder, downloader, progress, cancellationToken);
+    public async Task<string> FetchAsync(string placeholder, IProgress<TransferProgress> progress, CancellationToken cancellationToken)
+    {
+        if (options.SavePaths is null || !options.SavePaths.TryGetValue(placeholder, out var destination))
+            return await drop.ItemFor(placeholder).SaveAsync(SaveFolder, downloader, progress, cancellationToken);
+        var staging = Path.Combine(drop.WorkFolder, "named-downloads");
+        var saved = await drop.ItemFor(placeholder).SaveAsync(staging, downloader, progress, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        File.Move(saved, destination, overwrite: true);
+        return destination;
+    }
 
     public void Release(ConversionJob job)
     {
@@ -231,3 +256,4 @@ public sealed class WebDropFetcher(WebDrop drop, WebDropOptions options, WebDown
         WebDrop.TryDeleteFolder(drop.WorkFolder);
     }
 }
+

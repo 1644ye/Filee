@@ -40,6 +40,7 @@ public sealed class WindowsPlatformServices : IPlatformServices
         "OneCommander",
         "Q-Dir",
         "FreeCommander",
+        "FPilot",         // File Pilot (#633)
     };
 
     public void RaiseTopmost(nint windowHandle)
@@ -53,7 +54,9 @@ public sealed class WindowsPlatformServices : IPlatformServices
 
     public bool IsFileManagerAt(int x, int y)
     {
-        var root = RootWindowAt(x, y);
+        // Over a window the desktop owns (a desktop icon layer), a gesture is in the desktop's scope. Only here: the
+        // process name (ProcessNameAt, the excluded apps list) stays the layer's own, so the layer can be excluded.
+        var root = DesktopOrSelf(RootWindowAt(x, y));
         if (root == 0)
             return false;
         return IsFileManager(NativeMethods.ClassNameOf(root), ProcessNameOf(root));
@@ -81,6 +84,25 @@ public sealed class WindowsPlatformServices : IPlatformServices
 
     /// <summary>True for the desktop's window classes: its icons are not among Shell.Application's windows.</summary>
     internal static bool IsDesktop(string? windowClass) => windowClass is "Progman" or "WorkerW";
+
+    /// <summary>
+    /// True when the end of a window's owner chain (<paramref name="rootOwner"/>) is another window and the desktop.
+    /// Desktop icon layers (apps that hide Explorer's icon view and draw the icons themselves) cover the screen with a
+    /// window owned by the shell's desktop window, so a mouse gesture over them acts as on the desktop: the files
+    /// arrive through the OLE drag the layer starts. The selection shortcut is left out on purpose: it would read
+    /// Explorer's hidden desktop view, and nothing shows that a given layer keeps that view's selection in step.
+    /// </summary>
+    internal static bool StandsForDesktop(nint window, nint rootOwner, string? rootOwnerClass) =>
+        rootOwner != 0 && rootOwner != window && IsDesktop(rootOwnerClass);
+
+    /// <summary>The desktop for a top-level window it owns (see <see cref="StandsForDesktop"/>), else the window.</summary>
+    private static nint DesktopOrSelf(nint window)
+    {
+        if (window == 0)
+            return 0;
+        var owner = NativeMethods.GetAncestor(window, NativeMethods.GA_ROOTOWNER);
+        return StandsForDesktop(window, owner, NativeMethods.ClassNameOf(owner)) ? owner : window;
+    }
 
     public string? ShortcutTarget(string path) => ShellLinks.TargetOf(path);
 
@@ -119,7 +141,7 @@ public sealed class WindowsPlatformServices : IPlatformServices
             });
         }
         catch (Exception ex) when (ex is COMException or InvalidOperationException or InvalidCastException
-                                       or Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
+                                       or Microsoft.CSharp.RuntimeBinder.RuntimeBinderException or MissingMemberException)
         {
             // No Explorer desktop (another shell, Explorer restarting): nothing selected to read.
             return [];
@@ -173,6 +195,8 @@ public sealed class WindowsPlatformServices : IPlatformServices
                 }
                 catch (COMException) { }
                 catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { } // e.g. Internet Explorer windows
+                // "Could not get dispatch ID for HWND (error: 0x8000FFFF)": a shell window that answers no names (#606).
+                catch (MissingMemberException) { }
                 found.Add(window);
                 entries.Add(new ShellWindowEntry(topLevel, tab));
             }
@@ -191,9 +215,11 @@ public sealed class WindowsPlatformServices : IPlatformServices
                 }
                 catch (COMException) { }
                 catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { } // e.g. Internet Explorer windows
+                // The same for Document (#606).
+                catch (MissingMemberException) { }
             }
         }
-        catch (COMException)
+        catch (Exception ex) when (ex is COMException or Microsoft.CSharp.RuntimeBinder.RuntimeBinderException or MissingMemberException)
         {
         }
         finally

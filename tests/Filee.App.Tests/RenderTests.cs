@@ -25,6 +25,10 @@ public class RenderTests
 {
     public static TheoryData<string, string> Pages => new()
     {
+        { "home", "id" }, { "general", "id" }, { "triggers", "id" }, { "toolbar", "id" },
+        { "presets", "id" }, { "theme", "id" }, { "engines", "id" }, { "about", "id" }, { "watch", "id" },
+        { "home", "it" }, { "general", "it" }, { "triggers", "it" }, { "toolbar", "it" },
+        { "presets", "it" }, { "theme", "it" }, { "engines", "it" }, { "about", "it" }, { "watch", "it" },
         { "home", "de" }, { "general", "de" }, { "triggers", "de" }, { "toolbar", "de" },
         { "presets", "de" }, { "theme", "de" }, { "engines", "de" }, { "about", "de" }, { "watch", "de" },
         { "home", "tr" }, { "general", "tr" }, { "triggers", "tr" }, { "toolbar", "tr" },
@@ -493,7 +497,7 @@ public class RenderTests
             editor.Target = editor.Targets.Single(t => t.Value == "jpg");
             Assert.False(editor.ShowVideoMaxSize);
             Assert.True(editor.ShowQuality);
-            editor.ImageMaxSizeMb = 1.5m;
+            editor.ImageMaxSize = 1.5m;
             Assert.True(editor.Apply());
             Assert.Equal((0.0, 1.5), (added[^1].Media.MaxSizeMb, added[^1].Image.MaxSizeMb));
 
@@ -918,7 +922,7 @@ public class RenderTests
         window.DonutControl.SetExternalHighlight(1);
         Pump();
 
-        Assert.Equal(10, vm.Items.Count); // with "Trace to SVG" and "Line art to SVG"
+        Assert.Equal(12, vm.Items.Count); // with "Trace to SVG", "Line art to SVG", "Edit pictures" and "Pixelate / blur"
         Assert.Equal(title, vm.CenterTitle);
         Save(window, $"donut-images-{language}.png");
         window.Close();
@@ -1212,6 +1216,156 @@ public class RenderTests
         Assert.Equal(Filee.Core.Presets.ImageRotation.Left90, preset.Image.Rotation);
         Assert.Equal(Filee.Core.Presets.ImageFlip.Horizontal, preset.Image.Flip);
         Assert.Equal("jpg", preset.TargetFormat);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en")]
+    [InlineData("de")]
+    [InlineData("ru")]
+    public void Custom_resize_shows_its_fields_and_never_writes_a_name_older_versions_reject(string language)
+    {
+        TestServices.EnsureInitialized(language);
+        var loc = AppHost.Get<ILocalizer>();
+        var preset = Filee.Core.Presets.BuiltInData.CreatePresets().Single(p => p.Id == "jpg-70");
+        var vm = new PresetEditorViewModel(preset, loc);
+
+        vm.Resize = vm.ResizeModes.Single(r => r.Value == Filee.Core.Presets.ResizeMode.Percent);
+        Assert.False(vm.ShowCustom);
+
+        var raised = new List<string>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName!);
+        vm.Resize = vm.ResizeModes.Single(r => r.Value == Filee.Core.Presets.ResizeMode.Custom);
+        Assert.True(vm.ShowCustom);
+        Assert.Contains(nameof(vm.ShowCustom), raised);   // the boxes appear without reopening the editor
+
+        vm.CustomWidth = 777;
+        vm.CustomHeight = 333;
+        vm.LockAspect = true;
+        var window = new PresetEditorWindow { DataContext = vm, Height = 900 };
+        window.Show();
+        Pump();
+        Save(window, $"preset-custom-{language}.png");
+        window.Close();
+
+        Assert.True(vm.Apply());
+        // Stored as customSize with resize None, so an older Filee keeps reading presets.json instead of treating it
+        // as broken and overwriting the user's presets with the built-in ones (issue #576).
+        Assert.Equal(Filee.Core.Presets.ResizeMode.None, preset.Image.Resize);
+    }
+
+    [AvaloniaFact]
+    public void Custom_resize_stores_a_size_that_switching_the_mode_clears()
+    {
+        TestServices.EnsureInitialized("en");
+        var loc = AppHost.Get<ILocalizer>();
+        var preset = Filee.Core.Presets.BuiltInData.CreatePresets().Single(p => p.Id == "jpg-70");
+        var vm = new PresetEditorViewModel(preset, loc);
+        vm.Resize = vm.ResizeModes.Single(r => r.Value == Filee.Core.Presets.ResizeMode.Custom);
+        vm.CustomWidth = 777;
+        vm.CustomHeight = 333;
+        vm.LockAspect = true;
+        Assert.True(vm.Apply());
+        Assert.NotNull(preset.Image.CustomSize);
+        Assert.Equal((777, 333, true), (preset.Image.CustomSize!.Width, preset.Image.CustomSize!.Height, preset.Image.CustomSize.LockAspect));
+
+        // Reads back as Custom, and switching the mode clears the custom size.
+        var reloaded = new PresetEditorViewModel(preset, loc);
+        Assert.Equal(Filee.Core.Presets.ResizeMode.Custom, reloaded.Resize.Value);
+        Assert.Equal(333, reloaded.CustomHeight);
+        vm.Resize = vm.ResizeModes.Single(r => r.Value == Filee.Core.Presets.ResizeMode.Percent);
+        Assert.True(vm.Apply());
+        Assert.Null(preset.Image.CustomSize);
+        Assert.Equal(Filee.Core.Presets.ResizeMode.Percent, preset.Image.Resize);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en", false)]
+    [InlineData("en", true)]
+    [InlineData("de", false)]
+    [InlineData("de", true)]
+    [InlineData("ar", false)]
+    [InlineData("ar", true)]
+    public void Min_short_edge_shows_its_field_and_never_writes_a_name_older_versions_reject(string language, bool dark)
+    {
+        TestServices.EnsureInitialized(language);
+        var theme = AppHost.Get<ThemeService>();
+        if (dark)
+            theme.Apply(new ThemeSettings { Mode = ThemeMode.Dark }, language);
+        try
+        {
+            var loc = AppHost.Get<ILocalizer>();
+            var preset = Filee.Core.Presets.BuiltInData.CreatePresets().Single(p => p.Id == "jpg-70");
+            var vm = new PresetEditorViewModel(preset, loc);
+            Assert.False(vm.ShowMinShortEdge);
+
+            var raised = new List<string>();
+            vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName!);
+            vm.Resize = vm.ResizeModes.Single(r => r.Value == Filee.Core.Presets.ResizeMode.MinShortEdge);
+            Assert.True(vm.ShowMinShortEdge);
+            Assert.False(vm.ShowCustom);
+            Assert.Contains(nameof(vm.ShowMinShortEdge), raised);   // the box appears without reopening the editor
+            Assert.Equal(1080, vm.MinShortEdge);
+
+            var window = new PresetEditorWindow { DataContext = vm, Height = 900 };
+            window.Show();
+            Pump();
+            var box = window.GetVisualDescendants().OfType<NumericUpDown>()
+                .Single(n => n.IsEffectivelyVisible && Avalonia.Automation.AutomationProperties.GetName(n) == loc["presets.min_short_edge"]);
+            Assert.False(box.ShowButtonSpinner);
+            box.BringIntoView();
+            Pump();
+            Save(window, $"preset-min-short-edge-{language}-{(dark ? "dark" : "light")}.png");
+            window.Close();
+
+            Assert.True(vm.Apply());
+            // Stored as minShortEdge with resize None, so Filee 2.1.0 keeps reading presets.json (#652).
+            Assert.Equal(Filee.Core.Presets.ResizeMode.None, preset.Image.Resize);
+            Assert.Equal(1080, preset.Image.MinShortEdge);
+        }
+        finally
+        {
+            if (dark)
+                theme.Apply(new ThemeSettings(), language);
+        }
+    }
+
+    [AvaloniaFact]
+    public void Min_short_edge_is_stored_clamped_and_switching_the_mode_clears_it()
+    {
+        TestServices.EnsureInitialized("en");
+        var loc = AppHost.Get<ILocalizer>();
+        var preset = Filee.Core.Presets.BuiltInData.CreatePresets().Single(p => p.Id == "jpg-70");
+        var vm = new PresetEditorViewModel(preset, loc);
+        vm.Resize = vm.ResizeModes.Single(r => r.Value == Filee.Core.Presets.ResizeMode.MinShortEdge);
+        vm.MinShortEdge = 50000;
+        Assert.True(vm.Apply());
+        Assert.Equal(16384, preset.Image.MinShortEdge);
+        Assert.Null(preset.Image.CustomSize);
+
+        vm.MinShortEdge = 720;
+        Assert.True(vm.Apply());
+        var reloaded = new PresetEditorViewModel(preset, loc);
+        Assert.Equal(Filee.Core.Presets.ResizeMode.MinShortEdge, reloaded.Resize.Value);
+        Assert.Equal(720, reloaded.MinShortEdge);
+
+        // Custom replaces it rather than leaving both behind...
+        vm.Resize = vm.ResizeModes.Single(r => r.Value == Filee.Core.Presets.ResizeMode.Custom);
+        Assert.True(vm.Apply());
+        Assert.Null(preset.Image.MinShortEdge);
+        Assert.NotNull(preset.Image.CustomSize);
+
+        // ...and so does any other mode.
+        vm.Resize = vm.ResizeModes.Single(r => r.Value == Filee.Core.Presets.ResizeMode.MinShortEdge);
+        Assert.True(vm.Apply());
+        Assert.Null(preset.Image.CustomSize);
+        vm.Resize = vm.ResizeModes.Single(r => r.Value == Filee.Core.Presets.ResizeMode.Percent);
+        Assert.True(vm.Apply());
+        Assert.Null(preset.Image.MinShortEdge);
+        Assert.Equal(Filee.Core.Presets.ResizeMode.Percent, preset.Image.Resize);
+
+        // A minimum of 0 or below from a hand-edited file does nothing, so the editor shows the preset's own resize.
+        preset.Image.MinShortEdge = -5;
+        Assert.Equal(Filee.Core.Presets.ResizeMode.Percent, new PresetEditorViewModel(preset, loc).Resize.Value);
     }
 
     [AvaloniaTheory]
@@ -1709,6 +1863,61 @@ public class RenderTests
         });
     }
 
+    /// <summary>
+    /// #522: the profile list's Move up / Move down arrows beside "New profile", the hint under them, and the remark under
+    /// the chips before and after a new profile with .jpg moves above "Images".
+    /// </summary>
+    [AvaloniaTheory]
+    [InlineData("en", false)]
+    [InlineData("en", true)]
+    [InlineData("de", false)]
+    [InlineData("de", true)]
+    [InlineData("ar", false)]
+    [InlineData("ar", true)]
+    public void Toolbar_profile_order_renders(string language, bool dark)
+    {
+        var photos = new ToolbarProfile
+        {
+            Id = "render-photos",
+            Name = language == "de" ? "Fotos" : language == "ar" ? "صوري" : "Photos",
+            Extensions = ["jpg", "heic"],
+            PresetIds = ["to-jpg", "to-webp", "half-size", "to-pdf"],
+        };
+        WithProfiles(language, dark, 1240, profiles => profiles.Insert(profiles.FindIndex(p => p.IsFallback), photos), (window, vm) =>
+        {
+            var item = vm.Profiles.Single(p => p.Profile == photos);
+            vm.SelectedProfile = item;
+            Pump();
+            var up = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "MoveProfileUp");
+            var down = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "MoveProfileDown");
+            var hint = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "ProfileOrderHint");
+            Assert.True(up.IsEffectivelyEnabled);
+            Assert.False(down.IsEffectivelyEnabled); // the last normal profile
+            Assert.True(hint.IsEffectivelyVisible && hint.Bounds.Height > 0);
+            // The arrows sit between the list and "New profile", which keeps the column's width and shows its whole name.
+            var list = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "ProfileList");
+            var add = window.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.AddProfileCommand);
+            var name = add.GetVisualDescendants().OfType<TextBlock>().Single();
+            Assert.Equal(list.Bounds.Width, add.Bounds.Width, 0.5);
+            Assert.True(name.DesiredSize.Width <= add.Bounds.Width - 30, $"{name.DesiredSize.Width} in {add.Bounds.Width}");
+            Assert.True(Avalonia.VisualExtensions.TranslatePoint(up, default, list)!.Value.Y > list.Bounds.Height - 1);
+            Assert.True(Avalonia.VisualExtensions.TranslatePoint(add, default, up)!.Value.Y > up.Bounds.Height - 1);
+            Assert.Contains(vm.ExtensionTags!.Notes, n => n.IsWarning);
+            Save(window, $"toolbar-profile-order-before-{language}{(dark ? "-dark" : "")}.png");
+
+            vm.ProfileSearch = "jpg";
+            Pump();
+            vm.MoveProfileUpCommand.Execute(null);
+            vm.ProfileSearch = "";
+            Pump();
+            var store = AppHost.Get<UserDataStore>();
+            Assert.Equal(store.Profiles.FindIndex(p => p.Id == "images") - 1, store.Profiles.IndexOf(photos));
+            Assert.Same(item, vm.SelectedProfile);
+            Assert.True(down.IsEffectivelyEnabled);
+            Save(window, $"toolbar-profile-order-after-{language}{(dark ? "-dark" : "")}.png");
+        });
+    }
+
     /// <summary>A second mixed-selection donut limited to images and PDF, two groups expanded.</summary>
     [AvaloniaTheory]
     [InlineData("en", false, "render-scans")]
@@ -1919,6 +2128,7 @@ public class RenderTests
         var preset = new Filee.Core.Presets.Preset { TargetFormat = "dwg", Name = "Old DWG" };
         var vm = new PresetEditorViewModel(preset, AppHost.Get<ILocalizer>());
         Assert.True(vm.ShowCad);
+        Assert.False(vm.ShowCadColors); // DWG to DWG draws nothing
         Assert.Equal(["AutoCAD 2018", "AutoCAD 2013", "AutoCAD 2010", "AutoCAD 2007", "AutoCAD 2004", "AutoCAD 2000", "Same as the source"],
             vm.CadVersions.Select(v => v.Label));
 
@@ -1932,6 +2142,63 @@ public class RenderTests
         Assert.False(vm.ShowCad);
         Assert.True(vm.Apply());
         Assert.Equal(Filee.Core.Presets.CadVersion.AutoCad2018, preset.Cad.Version);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en", false)]
+    [InlineData("en", true)]
+    [InlineData("de", false)]
+    [InlineData("de", true)]
+    [InlineData("ar", false)]
+    [InlineData("ar", true)]
+    public void Preset_editor_offers_cad_colours_for_drawings_made_into_pdf_svg_and_pictures(string language, bool dark)
+    {
+        TestServices.EnsureInitialized(language);
+        var theme = AppHost.Get<ThemeService>();
+        var loc = AppHost.Get<ILocalizer>();
+        var preset = AppHost.Get<UserDataStore>().FindPreset("to-pdf")!.Clone();
+        var vm = new PresetEditorViewModel(preset, loc);
+        Assert.True(vm.ShowCadColors);
+        Assert.False(vm.ShowCad); // the AutoCAD version is for DWG and DXF
+        Assert.Equal(Filee.Core.Presets.CadColors.AsDrawn, vm.CadColors.Value);
+        Assert.Equal(Enum.GetValues<Filee.Core.Presets.CadColors>().Select(c => loc[$"presets.cad_colors.{c}"]), vm.CadColorChoices.Select(c => c.Label));
+
+        vm.CadColors = vm.CadColorChoices.Single(c => c.Value == Filee.Core.Presets.CadColors.BlackAndWhite);
+        if (dark)
+            theme.Apply(new ThemeSettings { Mode = ThemeMode.Dark }, language);
+        try
+        {
+            var window = new PresetEditorWindow { DataContext = vm, Height = 900 };
+            window.Show();
+            Pump();
+            var card = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "CadColorsCard");
+            Assert.True(card.IsEffectivelyVisible);
+            card.BringIntoView();
+            Pump();
+            Save(window, $"preset-cad-colours-{language}{(dark ? "-dark" : "")}.png");
+            window.Close();
+        }
+        finally
+        {
+            if (dark)
+                theme.Apply(new ThemeSettings(), language);
+        }
+        Assert.True(vm.Apply());
+        Assert.Equal(Filee.Core.Presets.CadColors.BlackAndWhite, preset.Cad.Colors);
+        Assert.Equal(Filee.Core.Presets.CadColors.BlackAndWhite, new PresetEditorViewModel(preset, loc).CadColors.Value);
+
+        // SVG and pictures take it too; DWG and Markdown don't show it, and don't keep it.
+        foreach (var target in (string[])["svg", "png", "jpg", "tiff"])
+        {
+            vm.Target = vm.Targets.Single(t => t.Value == target);
+            Assert.True(vm.ShowCadColors, target);
+        }
+        vm.Target = vm.Targets.Single(t => t.Value == "dwg");
+        Assert.False(vm.ShowCadColors);
+        Assert.True(vm.Apply());
+        Assert.Equal(Filee.Core.Presets.CadColors.AsDrawn, preset.Cad.Colors);
+        vm.Target = vm.Targets.Single(t => t.Value == "md");
+        Assert.False(vm.ShowCadColors);
     }
 
     [AvaloniaFact]

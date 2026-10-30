@@ -12,6 +12,12 @@ public sealed class HistoryEntry
     public DateTime FinishedAt { get; set; }
     public string PresetId { get; set; } = "";
     public string PresetName { get; set; } = "";
+
+    /// <summary>
+    /// The built-in preset's name key when the job showed its translated name, so the entry follows the language Filee
+    /// is in now (#744); null for the user's own names and in entries from before.
+    /// </summary>
+    public string? PresetNameKey { get; set; }
     public JobState State { get; set; }
     public List<string> Sources { get; set; } = [];
     public List<string> Outputs { get; set; } = [];
@@ -61,7 +67,8 @@ public sealed class HistoryEntry
             Outputs = [.. job.Outputs],
             Failures = failures,
             // history.json isn't the place for a PDF password: a retry takes it from the preset again.
-            Preset = failures.Count > 0 ? job.Preset.Clone().WithoutPassword(mark: true) : null,
+            // No Retry for parts of a picture to hide: a Filee from before them would write the picture as it is.
+            Preset = failures.Count > 0 && !job.Preset.Image.HidesAreas ? job.Preset.Clone().WithoutPassword(mark: true) : null,
             Undoable = UndoableOutputs(job),
             OriginalsInTrash = job.Files.Any(f => f.OriginalInTrash),
         };

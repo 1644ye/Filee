@@ -29,6 +29,7 @@
 <p align="center">
   <a href="https://trendshift.io/repositories/276987"><img src="https://trendshift.io/api/badge/trendshift/repositories/276987/weekly?language=C%23&v=2" alt="Filee: #1 C# repository of the week on Trendshift" width="250" height="55"></a>
   <a href="https://trendshift.io/repositories/276987"><img src="https://trendshift.io/api/badge/trendshift/repositories/276987/daily?language=C%23&v=2" alt="Filee: #1 C# repository of the day on Trendshift" width="250" height="55"></a>
+  <a href="https://hellogithub.com/repository/KnifeLemon/Filee" target="_blank"><img src="https://abroad.hellogithub.com/v1/widgets/recommend.svg?rid=0847caedd5bd4077a70b90f83afdf83c&claim_uid=jAlIvVMhn0kcEsU" alt="Featured｜HelloGitHub" width="250" height="54" /></a>
 </p>
 
 <p align="center">
@@ -45,7 +46,9 @@
   <a href="README.pt-BR.md">Português (Brasil)</a> ·
   <a href="README.pt-PT.md">Português (Portugal)</a> ·
   <a href="README.fr.md">Français</a> ·
-  <a href="README.th.md">ไทย</a>
+  <a href="README.th.md">ไทย</a> ·
+  <a href="README.tr.md">Türkçe</a> ·
+  <a href="README.id.md">Bahasa Indonesia</a>
 </p>
 
 <table>
@@ -56,7 +59,7 @@
       Форматы появляются там, где вы уже работаете, и только те, что подходят перетаскиваемым файлам.
     </td>
     <td width="33%" valign="top">
-      <b>263 форматов без лишних программ</b><br>
+      <b>270 форматов без лишних программ</b><br>
       Изображения, PDF, Word, Excel, PowerPoint, HWP, электронные книги, архивы, шрифты, чертежи CAD, 3D-модели и геоданные работают без Office, Hancom Office и LibreOffice.
     </td>
     <td width="33%" valign="top">
@@ -77,6 +80,8 @@
 ## Установка
 
 Скачайте со страницы [Releases](https://github.com/KnifeLemon/Filee/releases/latest).
+
+<a href="https://apps.microsoft.com/detail/XPDCN05L89WS0C?referrer=appbadge&cid=github&mode=full"><img src="https://get.microsoft.com/images/ru%20dark.svg" alt="Microsoft Store" width="200"></a>
 
 - **Windows 10/11**: запустите `Filee-<version>-win-Setup.exe` или распакуйте `win-Portable.zip` и запустите `Filee.exe`.
   - Setup — собственный установщик Filee: он говорит на тех же языках, что и Filee, и ничего не требует от компьютера.
@@ -128,7 +133,7 @@ Set-ProcessMitigation -Name filee-cli.exe -Disable UserShadowStack
 - **Папки наблюдения** конвертируют каждый файл, который в них попадает.
 - **Недавние конвертации** на главной, у каждой миниатюра: результат можно открыть («Открыть файл») или открыть в другой программе («Открыть с помощью»).
 - **Другие способы**: контекстное меню, горячая клавиша, зона перетаскивания и [команда `filee`](#командная-строка).
-- Светлая и тёмная темы со своим акцентным цветом и непрозрачностью кругового меню, интерфейс на языках English, Español, 日本語, 한국어, 简体中文, 繁體中文, Polski, हिन्दी, Русский, العربية (справа налево), Português (Brasil), Français, नेपाली, ไทย, Türkçe, Português (Portugal) и Deutsch.
+- Светлая и тёмная темы со своим акцентным цветом и непрозрачностью кругового меню, интерфейс на языках English, Español, 日本語, 한국어, 简体中文, 繁體中文, Polski, हिन्दी, Русский, العربية (справа налево), Português (Brasil), Français, नेपाली, ไทย, Türkçe, Português (Portugal), Deutsch, Italiano и Bahasa Indonesia.
 
 ## Скриншоты
 
@@ -161,7 +166,7 @@ Set-ProcessMitigation -Name filee-cli.exe -Disable UserShadowStack
 | **Субтитры**: SRT, ASS/SSA, WebVTT, SAMI (SMI), LRC, TTML, MicroDVD, SCC | друг в друга, в UTF-8 (корейские файлы в CP949 читаются правильно) |
 | **Архивы**: ZIP, ANSYS Workbench (WBPZ), 7Z, RAR, TAR, TAR.GZ, TAR.BZ2, TAR.XZ, GZ, ISO, CAB, DMG, ALZ, EGG, … | распаковка, ZIP, 7Z, TAR, TAR.GZ;<br>любые файлы → один ZIP |
 | **CAD**: DWG, DXF | PDF, SVG, PNG, DWG ↔ DXF |
-| **Шрифты**: TTF, OTF, WOFF, WOFF2, EOT | друг в друга |
+| **Шрифты**: TTF, OTF, WOFF, WOFF2, EOT;<br>FON (растровые шрифты Windows) только чтение | преобразование друг в друга;<br>FON → один файл на размер |
 | **Данные**: JSON, JSON Lines, YAML, TOML, XML<br>vCard, iCalendar | друг в друга, CSV и XLSX (таблицы);<br>vCard, iCalendar ↔ CSV |
 | **3D-модели**: GLB, glTF, STL, OBJ (+ MTL), 3MF, PLY;<br>FBX только чтение | друг в друга, превью в PNG |
 | **Геоданные (векторные)**: Shapefile, GeoJSON, KML, KMZ, GPX<br>CSV с координатами;<br>Garmin FIT только чтение | друг в друга и CSV / XLSX / JSON;<br>данные в проекциях (UTM, Web Mercator, Ламберта, Альберса) переводятся в долготу / широту WGS 84 |

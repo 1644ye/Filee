@@ -52,6 +52,22 @@ public partial class LocalizationTests
     }
 
 
+    [Fact]
+    public void The_flip_hint_leaves_its_arrow_to_the_donut()
+    {
+        // The hub draws the arrow itself (#554): as a character, fonts without "↻" (Linux's bundled Noto Sans) showed
+        // a box. The key stays first, so every language still reads "Tab back".
+        foreach (var code in LocalizationService.Languages.Select(l => l.Code))
+        {
+            var strings = Load(code);
+            foreach (var key in new[] { "donut.flip_to_back", "donut.flip_to_front" })
+            {
+                Assert.DoesNotContain("↻", strings[key]);
+                Assert.StartsWith("{0} ", strings[key]);
+            }
+        }
+    }
+
     [Theory]
     [MemberData(nameof(Languages))]
     public void Every_language_has_exactly_the_english_keys(string code)
@@ -156,7 +172,14 @@ public partial class LocalizationTests
     [InlineData("de-CH", "de")]
     [InlineData("de", "de")]
     [InlineData("den-CA", "en")]
-    [InlineData("it-IT", "en")]
+    [InlineData("it-IT", "it")]
+    [InlineData("it-CH", "it")]
+    [InlineData("it", "it")]
+    [InlineData("itl-RU", "en")]
+    [InlineData("id-ID", "id")]
+    [InlineData("id", "id")]
+    [InlineData("idu-NG", "en")]
+    [InlineData("sv-SE", "en")]
     [InlineData("", "en")] // Linux without LANG: the invariant culture
     public void Auto_follows_the_language_the_user_reads_the_os_in(string os, string expected) =>
         Assert.Equal(expected, LocalizationService.Resolve("auto", () => os));
@@ -164,6 +187,8 @@ public partial class LocalizationTests
     [Theory]
     [InlineData("ko")]
     [InlineData("de")]
+    [InlineData("it")]
+    [InlineData("id")]
     [InlineData("ar")]
     [InlineData("ne")]
     [InlineData("en")]
@@ -217,6 +242,20 @@ public partial class LocalizationTests
     {
         Assert.Contains(("de", "Deutsch"), LocalizationService.Languages);
         Assert.Equal("de", LocalizationService.Resolve("DE"));
+    }
+
+    [Fact]
+    public void Italian_is_offered_under_its_own_name()
+    {
+        Assert.Contains(("it", "Italiano"), LocalizationService.Languages);
+        Assert.Equal("it", LocalizationService.Resolve("IT"));
+    }
+
+    [Fact]
+    public void Indonesian_is_offered_under_its_own_name()
+    {
+        Assert.Contains(("id", "Bahasa Indonesia"), LocalizationService.Languages);
+        Assert.Equal("id", LocalizationService.Resolve("ID"));
     }
 
     [Fact]

@@ -1,0 +1,6 @@
+<!doctype html><meta charset="utf-8"><style>article{position:relative;display:inline-block;width:240px;height:120px}img{width:240px;height:120px}a{position:absolute;inset:0}.hidden{display:none}</style>
+<article><picture><img src="pixel.png?first" srcset="pixel.png?first-large 2600w"></picture><picture class="hidden"><img src="pixel.png?mobile"></picture><a href="/product-one"></a></article>
+<article><picture><img src="pixel.png?second" srcset="pixel.png?second-large 2600w"></picture><a href="/product-two"></a></article>
+<script src="../../browser-extension/svg-drag.js"></script><pre id="results"></pre><script>
+addEventListener('load',()=>{const results=[];for(const [i,card] of [...document.querySelectorAll('article')].entries()){const r=card.getBoundingClientRect();document.dispatchEvent(new MouseEvent('mousemove',{clientX:r.x+20,clientY:r.y+20,ctrlKey:true,bubbles:true}));const overlay=document.querySelector('img[title]');const data=new DataTransfer();overlay?.dispatchEvent(new DragEvent('dragstart',{ctrlKey:true,dataTransfer:data,bubbles:true}));results.push({banner:i+1,pass:data.getData('text/uri-list')===new URL('pixel.png?'+(i?'second':'first')+'-large',location.href).href});overlay?.dispatchEvent(new DragEvent('dragend'));}document.querySelector('#results').textContent=JSON.stringify(results)});
+</script>

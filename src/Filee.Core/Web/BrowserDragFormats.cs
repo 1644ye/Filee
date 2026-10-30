@@ -44,6 +44,9 @@ public static partial class BrowserDragFormats
     public const string Html = "text/html";
     public const string WindowsHtml = "HTML Format";
     public const string MacHtml = "public.html";
+    public const string PlainText = "text/plain";
+    public const string Svg = "image/svg+xml";
+    public const string MacSvg = "public.svg-image";
 
     // FILEDESCRIPTORW: dwFlags, clsid, sizel, pointl, dwFileAttributes, three FILETIMEs, nFileSizeHigh/Low,
     // cFileName[MAX_PATH] (UTF-16) = 592 bytes, after a 4-byte count.
@@ -208,6 +211,23 @@ public static partial class BrowserDragFormats
         var src = WebUtility.HtmlDecode(images[0].Groups["src"].Value).Trim();
         return src.Length == 0 ? null : src;
     }
+
+    public static string? VideoOnly(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html) || html.Length > 1024 * 1024) return null;
+        var matches = VideoTag().Matches(html);
+        if (matches.Count != 1) return null;
+        var text = Tag().Replace(Comment().Replace(html, ""), "");
+        if (WebUtility.HtmlDecode(text).Any(c => !char.IsWhiteSpace(c))) return null;
+        var src = WebUtility.HtmlDecode(matches[0].Groups["src"].Value).Trim();
+        if (!Uri.TryCreate(src, UriKind.Absolute, out var uri) || !WebDownloader.IsWebAddress(uri)) return null;
+        if (uri.AbsolutePath.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase)
+            || uri.AbsolutePath.EndsWith(".mpd", StringComparison.OrdinalIgnoreCase)) return null;
+        return src;
+    }
+
+    [GeneratedRegex("""<video\b[^>]*?\bsrc\s*=\s*(?:"(?<src>[^"]*)"|'(?<src>[^']*)'|(?<src>[^\s>]+))""", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex VideoTag();
 
     private static List<string> Lines(string? text) =>
         string.IsNullOrEmpty(text)

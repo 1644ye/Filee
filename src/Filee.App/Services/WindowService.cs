@@ -36,8 +36,12 @@ public sealed class WindowService(ILocalizer loc, IServiceProvider services, Mem
 
     private CropOverlayWindow? _cropOverlay;
     private ClipWindow? _clipWindow;
+    private HideWindow? _hideWindow;
+    private ImageEditWindow? _imageEdit;
 
     internal ClipWindow? ClipWindow => _clipWindow;
+    internal HideWindow? HideWindow => _hideWindow;
+    internal ImageEditWindow? ImageEdit => _imageEdit;
     private readonly HashSet<SpreadsheetPrintStudioWindow> _spreadsheetStudios = [];
 
     internal IReadOnlyCollection<SpreadsheetPrintStudioWindow> SpreadsheetStudios => _spreadsheetStudios;
@@ -49,11 +53,24 @@ public sealed class WindowService(ILocalizer loc, IServiceProvider services, Mem
 
     private void PrepareWindow(Window window) => services.GetService<ThemeService>()?.ApplyWindowClass(window);
 
-    /// <summary>Reviews the order of a PDF merge. Closing or cancelling starts no conversion.</summary>
-    public async Task<IReadOnlyList<string>?> ChooseMergeOrderAsync(IReadOnlyList<string> files)
+    /// <summary>
+    /// Reviews the order of a merge (<paramref name="preset"/>, when given, names the button). For "Merge images" the
+    /// layout is chosen too and written into <paramref name="preset"/>. Closing or cancelling starts no conversion.
+    /// </summary>
+    public async Task<IReadOnlyList<string>?> ChooseMergeOrderAsync(IReadOnlyList<string> files, Preset? preset = null)
     {
         _mergeOrder?.Close();
-        var dialog = new MergeOrderWindow { DataContext = new MergeOrderViewModel(files) };
+        var images = preset is { JoinsImages: true };
+        var vm = new MergeOrderViewModel(files, images ? preset!.Image : null);
+        var dialog = new MergeOrderWindow { DataContext = vm };
+        if (preset is not null)
+            dialog.StartMerge.Content = loc.DisplayName(preset);
+        if (images)
+        {
+            // Room for the layout below the list.
+            dialog.Height = 640;
+            dialog.MinHeight = 540;
+        }
         PrepareWindow(dialog);
         var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         dialog.Closed += (_, _) =>
@@ -65,7 +82,30 @@ public sealed class WindowService(ILocalizer loc, IServiceProvider services, Mem
         dialog.Show();
         dialog.Activate();
         await closed.Task;
+        if (dialog.Result is not null && images)
+            vm.ApplyTo(preset!.Image);
         return dialog.Result;
+    }
+
+    public async Task<string?> ChooseDownloadFileAsync(string startFolder, string name)
+    {
+        var owner = new Window
+        {
+            Title = loc["preset.browser_download"], Width = 380, Height = 120,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+            Content = new TextBlock { Text = loc["general.download.Ask"], Margin = new Thickness(24) },
+        };
+        PrepareWindow(owner);
+        owner.Show();
+        owner.Activate();
+        try
+        {
+            var start = await owner.StorageProvider.TryGetFolderFromPathAsync(startFolder);
+            var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            { Title = loc["preset.browser_download"], SuggestedFileName = name, ShowOverwritePrompt = true, SuggestedStartLocation = start });
+            return file?.TryGetLocalPath();
+        }
+        finally { owner.Close(); }
     }
 
     /// <summary>
@@ -121,13 +161,17 @@ public sealed class WindowService(ILocalizer loc, IServiceProvider services, Mem
     public MainWindow? Main => _main;
 
     /// <summary>
-    /// Opens the window of a tool preset (crop, cut a clip, the spreadsheet print studio: one per workbook, the PDF page
-    /// editor) on the files. A tool this version doesn't know opens nothing.
+    /// Opens the window of a tool preset (crop, cut a clip, edit pictures, pixelate / blur, the spreadsheet print studio:
+    /// one per workbook, the PDF page editor) on the files. A tool this version doesn't know opens nothing.
     /// </summary>
     public void ShowTool(IReadOnlyList<string> files, Preset preset, PixelPoint? near = null)
     {
         if (preset.IsClipTool)
             ShowClipWindow(files, preset, near);
+        else if (preset.IsHideTool)
+            ShowHideWindow(files, preset, near);
+        else if (preset.IsImageEditTool)
+            ShowImageEditWindow(files, preset);
         // Before the crop: the print studio and the PDF page tools have no Tool of their own, which reads as a crop
         // ("Crop PDF" is one and opens the crop overlay).
         else if (preset.Id == "tool-sheet-studio")
@@ -171,6 +215,91 @@ public sealed class WindowService(ILocalizer loc, IServiceProvider services, Mem
         _clipWindow = win;
         win.Show();
         win.Activate();
+    }
+
+    /// <summary>
+    /// Opens the "Edit pictures" window on the pictures among the files. Its Convert starts ordinary conversions, shown
+    /// in the toast.
+    /// </summary>
+    public void ShowImageEditWindow(IReadOnlyList<string> files, Preset preset)
+    {
+        var pictures = files.Where(f => FormatRegistry.Detect(f) is { } format && ImageEditTool.CanEdit(format.Id)).ToList();
+        if (pictures.Count == 0)
+            return;
+        _imageEdit?.Close();
+        var store = services.GetRequiredService<UserDataStore>();
+        var catalog = services.GetRequiredService<ConverterCatalog>();
+        var conversions = services.GetRequiredService<ConversionService>();
+        var log = services.GetService<ILogger<ImageEditViewModel>>();
+        var planner = catalog.CreatePlanner();
+        var formats = pictures.Select(path => FormatRegistry.Detect(path)?.Id ?? "").ToList();
+        var vm = new ImageEditViewModel(pictures, preset, loc, store,
+            (path, chosen) => ImageEditTool.TargetFor(FormatRegistry.Detect(path)?.Id ?? "", chosen, planner),
+            (paths, conversion) => conversions.Start(paths, conversion), PictureSize, log, ImageEditTool.TargetsFrom(formats, planner));
+        var win = new ImageEditWindow { DataContext = vm };
+        PrepareWindow(win);
+        win.Closed += (_, _) =>
+        {
+            if (_imageEdit == win)
+                _imageEdit = null;
+        };
+        _imageEdit = win;
+        win.Show();
+        win.Activate();
+    }
+
+    /// <summary>
+    /// Opens the "Pixelate / blur" window on the pictures among the files. Each picture is written by an ordinary
+    /// conversion, shown in the toast.
+    /// </summary>
+    public void ShowHideWindow(IReadOnlyList<string> files, Preset preset, PixelPoint? near = null)
+    {
+        var pictures = files.Where(f => FormatRegistry.Detect(f) is { } format && HideService.CanOpen(format.Id)).ToList();
+        if (pictures.Count == 0)
+            return;
+        _hideWindow?.Close();
+        var store = services.GetRequiredService<UserDataStore>();
+        var catalog = services.GetRequiredService<ConverterCatalog>();
+        var conversions = services.GetRequiredService<ConversionService>();
+        var log = services.GetService<ILogger<HideWindowViewModel>>();
+        var planner = catalog.CreatePlanner();
+        var vm = new HideWindowViewModel(pictures, preset, loc, store,
+            path => HideTool.TargetFor(FormatRegistry.Detect(path)?.Id ?? "", planner),
+            (path, conversion) => conversions.Start([path], conversion), log);
+        var win = new HideWindow { DataContext = vm };
+        PrepareWindow(win);
+        win.PositionOnScreen(near);
+        win.Closed += (_, _) =>
+        {
+            if (_hideWindow == win)
+                _hideWindow = null;
+            trimmer.Request();
+        };
+        _hideWindow = win;
+        win.Show();
+        win.Activate();
+    }
+
+    /// <summary>
+    /// The pixel size of a picture as it is seen, read from its headers: turned as its EXIF orientation says, and the
+    /// largest of an icon's sizes (the one converted). Null when ImageMagick can't read it.
+    /// </summary>
+    internal static (int Width, int Height)? PictureSize(string path)
+    {
+        try
+        {
+            var info = ImageMagick.MagickImageInfo.ReadCollection(path).MaxBy(frame => (long)frame.Width * frame.Height);
+            if (info is null)
+                return null;
+            return info.Orientation is ImageMagick.OrientationType.LeftTop or ImageMagick.OrientationType.RightTop
+                or ImageMagick.OrientationType.RightBottom or ImageMagick.OrientationType.LeftBottom
+                ? ((int)info.Height, (int)info.Width)
+                : ((int)info.Width, (int)info.Height);
+        }
+        catch (Exception ex) when (ex is ImageMagick.MagickException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     /// <summary>Opens the interactive crop overlay for the files.</summary>
@@ -294,17 +423,20 @@ public sealed class WindowService(ILocalizer loc, IServiceProvider services, Mem
         var model = ActivatorUtilities.CreateInstance<MainWindowViewModel>(services);
         var main = new MainWindow { DataContext = model };
         PrepareWindow(main);
-        if (_mainPlacement is { } placement)
-        {
-            placement.ApplyTo(main);
-            if (page is null)
-                model.Navigate(placement.Page);
-        }
+        var store = services.GetService<UserDataStore>();
+        // Where it was last time: this run's, else the one settings.json kept from the last run (#586).
+        var placement = _mainPlacement ?? MainWindowPlacement.From(store?.Settings.MainWindow);
+        placement.ApplyTo(main);
+        if (page is null && placement.Page.Length > 0)
+            model.Navigate(placement.Page);
         main.Closing += (_, _) =>
         {
             // While it is still on screen: the release closes it hidden, when its position may no longer be known.
-            if (main.IsVisible)
-                _mainPlacement = MainWindowPlacement.Of(main, model, _mainPlacement);
+            if (!main.IsVisible)
+                return;
+            // Maximized or minimized it keeps the size it had before: on the first close of a run, the one it opened with.
+            _mainPlacement = MainWindowPlacement.Of(main, model, _mainPlacement ?? placement);
+            store?.SaveMainWindow(_mainPlacement.ToBounds());
         };
         main.Closed += (_, _) =>
         {
@@ -669,9 +801,18 @@ public sealed class WindowService(ILocalizer loc, IServiceProvider services, Mem
     private static Window? MainWindowOrNull() =>
         (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
 
-    /// <summary>Where the main window was and which page it showed, for the next one.</summary>
-    private sealed record MainWindowPlacement(PixelPoint? Position, Size? Size, bool Maximized, string Page)
+    /// <summary>
+    /// Where the main window was and which page it showed, for the next one. The page stays within this run; the rest is
+    /// also kept in settings.json for the next start (<see cref="AppSettings.MainWindow"/>).
+    /// </summary>
+    internal sealed record MainWindowPlacement(PixelPoint? Position, Size? Size, bool Maximized, string Page)
     {
+        /// <summary>Room left between the window and the edges of its screen's working area.</summary>
+        internal const double Margin = 8;
+
+        /// <summary>The title bar and borders around the content, which the size (the content's) doesn't count.</summary>
+        internal const double Frame = 40;
+
         /// <summary>The window's placement. Maximized or minimized, it keeps the position and size it had before.</summary>
         public static MainWindowPlacement Of(MainWindow window, MainWindowViewModel vm, MainWindowPlacement? last) =>
             window.WindowState switch
@@ -681,21 +822,74 @@ public sealed class WindowService(ILocalizer loc, IServiceProvider services, Mem
                 _ => (last ?? new(null, null, false, "")) with { Page = vm.SelectedItem.Key },
             };
 
+        /// <summary>The placement settings.json kept, without a page; nothing (the designed size) when it kept none.</summary>
+        public static MainWindowPlacement From(WindowBounds? bounds)
+        {
+            if (bounds is null)
+                return new(null, null, false, "");
+            PixelPoint? position = bounds is { X: { } x, Y: { } y } ? new PixelPoint(x, y) : null;
+            // A size settings.json can't have come from (hand-edited, damaged) is left out.
+            Size? size = bounds is { Width: { } w, Height: { } h } && double.IsFinite(w) && double.IsFinite(h) && w >= 100 && h >= 100
+                ? new Size(w, h)
+                : null;
+            return new(position, size, bounds.Maximized, "");
+        }
+
+        public WindowBounds ToBounds() => new()
+        {
+            X = Position?.X,
+            Y = Position?.Y,
+            Width = Size?.Width,
+            Height = Size?.Height,
+            Maximized = Maximized,
+        };
+
         public void ApplyTo(MainWindow window)
         {
-            // Only on a screen that is still there (a monitor may have been unplugged since).
-            if (Position is { } position && window.Screens.ScreenFromPoint(position) is not null)
+            // On a screen that is still there (a monitor may have been unplugged since), else the primary one, where the
+            // window then opens centred.
+            var screen = Position is { } at ? window.Screens.ScreenFromPoint(at) : null;
+            var place = screen is null ? null : Position;
+            screen ??= window.Screens.Primary;
+            var size = Size ?? new Size(window.Width, window.Height);
+            if (screen is { Scaling: > 0 })
+            {
+                var fitted = Fit(screen.WorkingArea, screen.Scaling, place, size, new Size(window.MinWidth, window.MinHeight));
+                window.MinWidth = fitted.Min.Width;
+                window.MinHeight = fitted.Min.Height;
+                size = fitted.Size;
+                place = fitted.Position;
+            }
+            if (place is { } position)
             {
                 window.WindowStartupLocation = WindowStartupLocation.Manual;
                 window.Position = position;
             }
-            if (Size is { } size)
-            {
-                window.Width = size.Width;
-                window.Height = size.Height;
-            }
+            window.Width = size.Width;
+            window.Height = size.Height;
             if (Maximized)
                 window.WindowState = WindowState.Maximized;
+        }
+
+        /// <summary>
+        /// The main window on a screen whose working area is <paramref name="area"/> (pixels, at <paramref name="scaling"/>):
+        /// <paramref name="size"/> made to fit the area less <see cref="Margin"/> and <see cref="Frame"/>, the
+        /// <paramref name="min"/>imum lowered where the area is smaller than it, and <paramref name="position"/> moved
+        /// back inside the area where the window would stick out (null stays null: the window opens centred).
+        /// </summary>
+        internal static (Size Size, Size Min, PixelPoint? Position) Fit(PixelRect area, double scaling, PixelPoint? position, Size size, Size min)
+        {
+            var room = new Size(Math.Max(1, area.Width / scaling - 2 * Margin), Math.Max(1, area.Height / scaling - 2 * Margin - Frame));
+            var fitted = new Size(Math.Min(size.Width, room.Width), Math.Min(size.Height, room.Height));
+            var fittedMin = new Size(Math.Min(min.Width, fitted.Width), Math.Min(min.Height, fitted.Height));
+            if (position is not { } at)
+                return (fitted, fittedMin, null);
+            // The whole window in pixels, frame included, and the corner that keeps it inside the area.
+            var width = (int)Math.Ceiling(fitted.Width * scaling);
+            var height = (int)Math.Ceiling((fitted.Height + Frame) * scaling);
+            var x = Math.Clamp(at.X, area.X, Math.Max(area.X, area.Right - width));
+            var y = Math.Clamp(at.Y, area.Y, Math.Max(area.Y, area.Bottom - height));
+            return (fitted, fittedMin, new PixelPoint(x, y));
         }
     }
 }

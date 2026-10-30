@@ -140,9 +140,10 @@ public static class FormatRegistry
         new("sda", "SDA", FormatCategory.Presentation, ["sda", "sdd"], Writable: false),
 
         // Plain text / markup
-        // Text logs, source/proxy scripts and style sheets are read as plain text, never executed (issues #273, #284, #254,
-        // #388, #368).
-        new("txt", "TXT", FormatCategory.Text, ["txt", "log", "py", "pac", "bat", "command", "lua", "css", "ps1"]),
+        // Text logs, source/proxy scripts, style sheets and settings files are read as plain text, never executed (issues
+        // #273, #284, #254, #388, #368, #607, #536, #630, #661, #660).
+        new("txt", "TXT", FormatCategory.Text,
+            ["txt", "log", "py", "pac", "bat", "cmd", "command", "lua", "css", "ps1", "sql", "ahk", "ini", "rsc"]),
         new("md", "Markdown", FormatCategory.Text, ["md", "markdown"]),
         new("html", "HTML", FormatCategory.Text, ["html", "htm", "xhtml"]),
         // A web page saved with its pictures in one MIME file (Chrome, Edge, Word); read as the page it holds.
@@ -226,6 +227,14 @@ public static class FormatRegistry
         new("cavs", "CAVS", FormatCategory.Video, ["cavs"], Writable: false),
         // CRI Middleware's video for game cutscenes (#485): FFmpeg's usm demuxer reads unencrypted ones.
         new("usm", "USM", FormatCategory.Video, ["usm"], Writable: false),
+        // Fragmented MP4 (#354): an .m4s with its own moov (ftyp + moov, then styp / sidx / moof / mdat) is read by FFmpeg;
+        // a DASH media segment that needs a separate init segment is refused (DashSegment).
+        new("m4s", "M4S", FormatCategory.Video, ["m4s"], Writable: false),
+        // Dahua and similar DVR / NVR recordings (#594): FFmpeg's dhav demuxer reads them (H.264 / H.265 video, often
+        // with G.711 or AAC sound).
+        new("dav", "DAV", FormatCategory.Video, ["dav"], Writable: false),
+        // Bink Video, the game cutscene format of RAD Game Tools (#751): FFmpeg's bink demuxer reads it. Never a target.
+        new("bik", "BIK", FormatCategory.Video, ["bik"], Writable: false),
         // Raw H.265 / H.264 streams with no container, as security cameras and VMS software export them (issue #301).
         new("h265", "H.265", FormatCategory.Video, ["h265", "265", "hevc"], Writable: false),
         new("h264", "H.264", FormatCategory.Video, ["h264", "264"], Writable: false),
@@ -261,6 +270,8 @@ public static class FormatRegistry
         new("dff", "DFF", FormatCategory.Audio, ["dff"], Writable: false),
         new("dts", "DTS", FormatCategory.Audio, ["dts"], Writable: false),
         new("spx", "Speex", FormatCategory.Audio, ["spx"], Writable: false),
+        // Apple Voice Memos recordings (#646): QuickTime audio, read by FFmpeg's mov demuxer.
+        new("qta", "QTA", FormatCategory.Audio, ["qta"], Writable: false),
 
         // Archives
         // ANSYS Workbench project archives use the ZIP container (issue #294).
@@ -292,6 +303,7 @@ public static class FormatRegistry
         new("arj", "ARJ", FormatCategory.Archive, ["arj"], Writable: false),
         new("alz", "ALZ", FormatCategory.Archive, ["alz"], Writable: false),
         new("egg", "EGG", FormatCategory.Archive, ["egg"], Writable: false),
+        new("split", "Split Archive", FormatCategory.Archive, ["001", "7z.001", "zip.001", "tar.001"], Writable: false),
         new(Folder, "Folder", FormatCategory.Archive, [""]),
 
         // CAD
@@ -304,6 +316,7 @@ public static class FormatRegistry
         new("woff", "WOFF", FormatCategory.Font, ["woff"]),
         new("woff2", "WOFF2", FormatCategory.Font, ["woff2"]),
         new("eot", "EOT", FormatCategory.Font, ["eot"]),
+        new("fon", "FON", FormatCategory.Font, ["fon"], Writable: false),
 
         // Subtitles (text)
         new("srt", "SRT", FormatCategory.Subtitle, ["srt"]),

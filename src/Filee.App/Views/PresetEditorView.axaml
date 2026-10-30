@@ -111,11 +111,22 @@
           </DockPanel>
           <Slider Minimum="1" Maximum="100" Value="{Binding Quality}" TickFrequency="1" IsSnapToTickEnabled="True" AutomationProperties.Name="{DynamicResource presets.quality}" />
         </StackPanel>
-        <Grid ColumnDefinitions="Auto,12,170" IsVisible="{Binding ShowQuality}">
-          <TextBlock Classes="label" VerticalAlignment="Center" Text="{DynamicResource presets.max_size}" />
-          <NumericUpDown Grid.Column="2" Value="{Binding ImageMaxSizeMb}" Minimum="0" Maximum="4096" Increment="0.5" FormatString="0.#"
-                         ToolTip.Tip="{DynamicResource presets.max_size_hint_image}" AutomationProperties.Name="{DynamicResource presets.max_size}" />
-        </Grid>
+        <!-- File size range (#553, #662): both ends in one unit; the preset keeps megabytes. -->
+        <StackPanel IsVisible="{Binding ShowQuality}" Spacing="4">
+          <TextBlock Classes="label" Text="{DynamicResource presets.size_range}" />
+          <Grid ColumnDefinitions="*,8,Auto,8,*,8,Auto">
+            <NumericUpDown Name="ImageMinSize" Value="{Binding ImageMinSize}" Minimum="0" Maximum="{Binding SizeMaximum}"
+                           Increment="{Binding SizeIncrement}" FormatString="{Binding SizeFormat}"
+                           ToolTip.Tip="{DynamicResource presets.min_size_hint_image}" AutomationProperties.Name="{DynamicResource presets.min_size}" />
+            <TextBlock Grid.Column="2" Text="~" VerticalAlignment="Center" />
+            <NumericUpDown Grid.Column="4" Name="ImageMaxSize" Value="{Binding ImageMaxSize}" Minimum="0" Maximum="{Binding SizeMaximum}"
+                           Increment="{Binding SizeIncrement}" FormatString="{Binding SizeFormat}"
+                           ToolTip.Tip="{DynamicResource presets.max_size_hint_image}" AutomationProperties.Name="{DynamicResource presets.max_size_short}" />
+            <ComboBox Grid.Column="6" Name="ImageSizeUnit" ItemsSource="{Binding SizeUnits}" SelectedItem="{Binding ImageSizeUnit}"
+                      AutomationProperties.Name="{DynamicResource presets.size_unit}" />
+          </Grid>
+          <TextBlock Classes="caption danger" Text="{Binding SizeRangeError}" IsVisible="{Binding SizeRangeError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
         <Grid ColumnDefinitions="*,12,*">
           <StackPanel>
             <TextBlock Classes="label" Text="{DynamicResource presets.resize}" />
@@ -132,6 +143,20 @@
           <StackPanel Grid.Column="2" IsVisible="{Binding ShowWidth}">
             <TextBlock Classes="label" Text="{DynamicResource presets.width}" />
             <NumericUpDown Value="{Binding Width}" Minimum="16" Maximum="20000" Increment="100" FormatString="0" AutomationProperties.Name="{DynamicResource presets.width}" />
+          </StackPanel>
+          <!-- Full rows instead of half-width boxes: the spinner kept most of a half-width box for itself and
+               clipped a three-digit size to its first digit, so width and height each get the whole row. -->
+          <StackPanel Grid.Column="2" IsVisible="{Binding ShowCustom}">
+            <TextBlock Classes="label" Text="{DynamicResource presets.width}" />
+            <NumericUpDown Value="{Binding CustomWidth}" Minimum="16" Maximum="16384" Increment="10" FormatString="0" ShowButtonSpinner="False" HorizontalContentAlignment="Center" AutomationProperties.Name="{DynamicResource presets.width}" />
+            <TextBlock Classes="label" Margin="0,8,0,0" Text="{DynamicResource presets.height}" />
+            <NumericUpDown Value="{Binding CustomHeight}" Minimum="16" Maximum="16384" Increment="10" FormatString="0" ShowButtonSpinner="False" HorizontalContentAlignment="Center" AutomationProperties.Name="{DynamicResource presets.height}" />
+            <CheckBox Content="{DynamicResource presets.lock_aspect}" IsChecked="{Binding LockAspect}" Margin="0,8,0,0" AutomationProperties.Name="{DynamicResource presets.lock_aspect}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" IsVisible="{Binding ShowMinShortEdge}">
+            <TextBlock Classes="label" Text="{DynamicResource presets.min_short_edge}" />
+            <NumericUpDown Value="{Binding MinShortEdge}" Minimum="16" Maximum="16384" Increment="10" FormatString="0" ShowButtonSpinner="False" HorizontalContentAlignment="Center"
+                           ToolTip.Tip="{DynamicResource presets.min_short_edge_hint}" AutomationProperties.Name="{DynamicResource presets.min_short_edge}" />
           </StackPanel>
         </Grid>
         <Grid ColumnDefinitions="*,12,*">
@@ -450,6 +475,21 @@
           <TextBlock Classes="caption" TextWrapping="Wrap" Text="{DynamicResource presets.pdf_password_hint}" />
           <CheckBox Content="{DynamicResource presets.page_numbers}" IsChecked="{Binding PageNumbers}" />
         </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <!-- DWG / DXF drawn into a PDF, SVG or picture: as drawn, black and white or grayscale (#411). After the PDF card:
+         most PDFs and pictures aren't made from drawings. -->
+    <Border x:Name="CadColorsCard" Classes="card" IsVisible="{Binding ShowCadColors}" Padding="14">
+      <StackPanel Spacing="10">
+        <TextBlock Classes="h2" Text="{DynamicResource presets.group.cad}" />
+        <Grid ColumnDefinitions="*,12,*">
+          <StackPanel>
+            <TextBlock Classes="label" Text="{DynamicResource presets.cad_colors}" />
+            <ComboBox ItemsSource="{Binding CadColorChoices}" SelectedItem="{Binding CadColors}" HorizontalAlignment="Stretch" AutomationProperties.Name="{DynamicResource presets.cad_colors}" />
+          </StackPanel>
+        </Grid>
+        <TextBlock Classes="caption" Text="{DynamicResource presets.cad_colors_hint}" TextWrapping="Wrap" />
       </StackPanel>
     </Border>
 

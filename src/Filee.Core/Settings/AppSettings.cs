@@ -123,7 +123,7 @@ public sealed class DonutSettings
 public sealed class AppSettings
 {
     /// <summary>Current schema version. Increase when the format changes and add a migration.</summary>
-    public const int CurrentSchemaVersion = 47;
+    public const int CurrentSchemaVersion = 56;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
@@ -262,6 +262,12 @@ public sealed class AppSettings
     public double UiScale { get; set; } = 1;
 
     /// <summary>
+    /// Where the main window was when it last closed, so the next start opens it there (#586). Null until it has closed
+    /// once. A Filee from before it skips the property, so it needs no schema step.
+    /// </summary>
+    public WindowBounds? MainWindow { get; set; }
+
+    /// <summary>
     /// Returns <paramref name="preset"/> itself, or a copy with the app-wide output settings applied: it saves to
     /// <see cref="DefaultOutput"/> when the preset's location is <see cref="OutputLocation.Default"/>, and keeps the
     /// original dates when <see cref="KeepFileDates"/> is on and is saved as a ZIP when <see cref="ZipGeoResults"/> is on and the
@@ -306,6 +312,19 @@ internal sealed class IconPreferenceJsonConverter : JsonConverter<bool>
         writer.WriteBooleanValue(value);
 }
 
+/// <summary>
+/// A window's place (<see cref="AppSettings.MainWindow"/>): its top-left corner in screen pixels and its size in
+/// device-independent pixels, as Avalonia gives them; a part not known is null. Maximized keeps the size it had before.
+/// </summary>
+public sealed class WindowBounds
+{
+    public int? X { get; set; }
+    public int? Y { get; set; }
+    public double? Width { get; set; }
+    public double? Height { get; set; }
+    public bool Maximized { get; set; }
+}
+
 /// <summary>The save location presets set to "Default" use. Starts as "next to the source file", as before 1.4.</summary>
 public sealed class DefaultOutputSettings
 {
@@ -318,10 +337,16 @@ public sealed class DefaultOutputSettings
 }
 
 /// <summary>Files dragged out of a web browser (Settings → General).</summary>
+public enum DownloadLocation { Default, Ask, Custom }
+
 public sealed class BrowserDropSettings
 {
+    public bool EnableSvgCodeDrag { get; set; } = true;
     /// <summary>Where they are saved; empty means the user's Downloads folder (looked up each time, as it can move).</summary>
     public string Folder { get; set; } = "";
+    public DownloadLocation DownloadLocation { get; set; }
+    public string DownloadFolder { get; set; } = "";
+    public string LastDownloadFolder { get; set; } = "";
 
     /// <summary>Keep only the converted file: the original goes into a work folder and is deleted after the conversion.</summary>
     public bool SaveOnlyConverted { get; set; }
