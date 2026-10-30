@@ -44,6 +44,9 @@ public static partial class BrowserDragFormats
     public const string Html = "text/html";
     public const string WindowsHtml = "HTML Format";
     public const string MacHtml = "public.html";
+    public const string PlainText = "text/plain";
+    public const string Svg = "image/svg+xml";
+    public const string MacSvg = "public.svg-image";
 
     // FILEDESCRIPTORW: dwFlags, clsid, sizel, pointl, dwFileAttributes, three FILETIMEs, nFileSizeHigh/Low,
     // cFileName[MAX_PATH] (UTF-16) = 592 bytes, after a 4-byte count.

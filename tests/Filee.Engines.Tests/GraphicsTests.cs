@@ -17,6 +17,20 @@ namespace Filee.Engines.Tests;
 
 public class GraphicsTests(EngineFixture fx) : IClassFixture<EngineFixture>
 {
+    [Theory]
+    [InlineData("")]
+    [InlineData("<rect width='20' height='20' opacity='0'/>")]
+    public void Empty_svg_renders_fail_instead_of_writing_blank_images(string contents)
+    {
+        var path = Write(fx.NewFolder(), "empty.svg",
+            "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20'>" + contents + "</svg>");
+        Assert.Throws<InvalidDataException>(() =>
+        {
+            using var drawing = SvgRenderer.Load(path);
+            using var image = SvgRenderer.Rasterize(drawing, 1);
+        });
+    }
+
     private static bool GhostscriptInstalled => GhostscriptConverter.Locate() is not null;
 
     private static void AssertDone(ConversionJob job)

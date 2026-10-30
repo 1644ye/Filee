@@ -31,6 +31,13 @@
       </WrapPanel>
     </StackPanel>
 
+    <Border Classes="card">
+      <StackPanel Spacing="8">
+        <ToggleSwitch Content="{DynamicResource triggers.svg_code_drag}" IsChecked="{Binding EnableSvgCodeDrag}" />
+        <TextBlock Classes="caption" TextWrapping="Wrap" Text="{DynamicResource triggers.svg_code_drag_hint}" />
+      </StackPanel>
+    </Border>
+
     <ItemsControl ItemsSource="{Binding Gestures}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
