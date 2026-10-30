@@ -68,7 +68,7 @@ public sealed class WindowService(ILocalizer loc, IServiceProvider services, Mem
         return dialog.Result;
     }
 
-    public async Task<string?> ChooseDownloadFolderAsync(string startFolder)
+    public async Task<string?> ChooseDownloadFileAsync(string startFolder, string name)
     {
         var owner = new Window
         {
@@ -82,9 +82,9 @@ public sealed class WindowService(ILocalizer loc, IServiceProvider services, Mem
         try
         {
             var start = await owner.StorageProvider.TryGetFolderFromPathAsync(startFolder);
-            var folders = await owner.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-            { Title = loc["general.download.Ask"], AllowMultiple = false, SuggestedStartLocation = start });
-            return folders.FirstOrDefault()?.TryGetLocalPath();
+            var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            { Title = loc["preset.browser_download"], SuggestedFileName = name, ShowOverwritePrompt = true, SuggestedStartLocation = start });
+            return file?.TryGetLocalPath();
         }
         finally { owner.Close(); }
     }

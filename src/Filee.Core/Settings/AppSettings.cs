@@ -327,6 +327,7 @@ public sealed class BrowserDropSettings
     public string Folder { get; set; } = "";
     public DownloadLocation DownloadLocation { get; set; }
     public string DownloadFolder { get; set; } = "";
+    public string LastDownloadFolder { get; set; } = "";
 
     /// <summary>Keep only the converted file: the original goes into a work folder and is deleted after the conversion.</summary>
     public bool SaveOnlyConverted { get; set; }

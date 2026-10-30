@@ -123,6 +123,15 @@
     let svg = hit?.closest("svg");
     while (svg?.parentElement?.closest("svg")) svg = svg.parentElement.closest("svg");
     let picture = hit?.closest("img");
+    // Hero banners often place a sibling link over the entire picture. Look through
+    // that link within its own card, never through dialogs or unrelated controls.
+    if (!svg && !picture && hit?.closest("a")) {
+      const link = hit.closest("a");
+      const stack = document.elementsFromPoint(x, y);
+      picture = stack.find(element => element.localName === "img"
+        && link.parentElement?.contains(element)
+        && getComputedStyle(element).visibility === "visible") || null;
+    }
     if (!svg && !picture) {
       const card = hit?.closest("a");
       const images = card?.querySelectorAll("img");

@@ -368,7 +368,7 @@ public sealed class RadialController(
 
     private async Task DownloadInFolderAsync(IReadOnlyList<string> files, Preset preset, WebDrop web)
     {
-        try { await conversions.ChooseDownloadAsync(files, preset, web, windows.ChooseDownloadFolderAsync); }
+        try { await conversions.ChooseNamedDownloadAsync(files, preset, web, windows.ChooseDownloadFileAsync); }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         { log.LogError(ex, "Could not choose the download folder"); }
     }

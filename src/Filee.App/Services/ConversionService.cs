@@ -66,7 +66,7 @@ public sealed class ConversionService
     /// General names for files from a browser. The job owns it from now on (disposed here when nothing starts).
     /// </param>
     /// <returns>The job's view model, or null when there was nothing to convert.</returns>
-    public JobViewModel? Start(IReadOnlyList<string> files, Preset preset, bool showInToast = true, WebDrop? web = null, string? downloadFolder = null)
+    public JobViewModel? Start(IReadOnlyList<string> files, Preset preset, bool showInToast = true, WebDrop? web = null, string? downloadFolder = null, IReadOnlyDictionary<string, string>? savePaths = null)
     {
         if (files.Count == 0 || preset.IsGroup || preset.IsTool || preset.IsDownload && (web is null || DownloadNeedsPicker && string.IsNullOrWhiteSpace(downloadFolder)))
         {
@@ -80,7 +80,7 @@ public sealed class ConversionService
         {
             var options = BrowserDropOptions();
             if (preset.IsDownload)
-                options = options with { SaveOnlyConverted = false, Folder = downloadFolder ?? DownloadFolderInUse };
+                options = options with { SaveOnlyConverted = false, Folder = downloadFolder ?? DownloadFolderInUse, SavePaths = savePaths };
             fetcher = web.CreateFetcher(options, _downloader);
             // "Next to the source" is the download folder, also when the original is only kept until converted.
             preset = fetcher.Apply(preset);
@@ -170,6 +170,31 @@ public sealed class ConversionService
     public string DownloadFolderInUse => _store.Settings.BrowserDrops.DownloadLocation == DownloadLocation.Custom
         && !string.IsNullOrWhiteSpace(_store.Settings.BrowserDrops.DownloadFolder)
         ? _store.Settings.BrowserDrops.DownloadFolder.Trim() : _platform.DownloadsFolder;
+
+    internal async Task<JobViewModel?> ChooseNamedDownloadAsync(IReadOnlyList<string> files, Preset preset, WebDrop web,
+        Func<string, string, Task<string?>> chooseFile)
+    {
+        try
+        {
+            var folder = _store.Settings.BrowserDrops.LastDownloadFolder;
+            if (!Directory.Exists(folder)) folder = DownloadFolderInUse;
+            var paths = new Dictionary<string, string>();
+            foreach (var file in files)
+            {
+                var path = await chooseFile(folder, Path.GetFileName(file));
+                if (string.IsNullOrWhiteSpace(path)) return null;
+                if (paths.Values.Contains(path, StringComparer.OrdinalIgnoreCase)) return null;
+                paths[file] = path;
+                folder = Path.GetDirectoryName(path)!;
+            }
+            _store.Settings.BrowserDrops.LastDownloadFolder = folder;
+            _store.SaveSettings();
+            var job = Start(files, preset, web: web, downloadFolder: folder, savePaths: paths);
+            web = null!;
+            return job;
+        }
+        finally { web?.Dispose(); }
+    }
 
     internal async Task<JobViewModel?> ChooseDownloadAsync(IReadOnlyList<string> files, Preset preset, WebDrop web,
         Func<string, Task<string?>> chooseFolder)
