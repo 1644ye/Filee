@@ -1,0 +1,5 @@
+<!doctype html><meta charset="utf-8"><video style="width:300px;height:160px" src="https://example.com/movie.mp4?token=abc"></video><pre id="results"></pre><script src="../../browser-extension/svg-drag.js"></script><script>
+const results=[];const v=document.querySelector('video');
+function test(src,expected){v.src=src;const r=v.getBoundingClientRect();document.dispatchEvent(new MouseEvent('mousemove',{clientX:r.x+10,clientY:r.y+10,ctrlKey:true}));const o=document.querySelector('[title="Ctrl + drag to Filee"]');const d=new DataTransfer();o?.dispatchEvent(new DragEvent('dragstart',{ctrlKey:true,dataTransfer:d,bubbles:true}));results.push({src,pass:expected?d.getData('text/html').includes(expected.replaceAll('&','&amp;')) && !d.getData('DownloadURL') && !d.getData('text/uri-list') && !d.getData('text/plain'):!o});o?.dispatchEvent(new DragEvent('dragend'));}
+test('https://example.com/movie.mp4?token=abc','https://example.com/movie.mp4?token=abc');test('https://example.com/live.m3u8',null);test('blob:https://example.com/123',null);document.querySelector('#results').textContent=JSON.stringify(results);
+</script>

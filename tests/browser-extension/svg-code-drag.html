@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><title>SVG code drag checks</title>
+<pre id="code" style="font:16px monospace;white-space:pre-wrap"></pre><p id="ordinary">Ordinary text selection</p><pre id="results"></pre>
+<script src="../../browser-extension/svg-drag.js"></script>
+<script>
+window.addEventListener('load',()=>{
+ const results=[];const check=(ok,name)=>{results.push({name,pass:!!ok});if(!ok)throw Error(name)};
+ try {
+ const text='<svg width="20" height="20"><rect width="20" height="20" fill="red"/></svg>';
+ const code=document.querySelector('#code');code.textContent=text;
+ const range=document.createRange();range.selectNodeContents(code);const selection=getSelection();selection.removeAllRanges();selection.addRange(range);
+ const b=range.getBoundingClientRect();document.dispatchEvent(new MouseEvent('mousemove',{clientX:b.x+15,clientY:b.y+8,ctrlKey:true,bubbles:true}));
+ const overlay=document.querySelector('[title="Ctrl + drag to Filee"]');check(overlay?.draggable,'selected code has a native drag source');check(overlay.tagName==='DIV','code does not create a virtual image file');
+ const data=new DataTransfer();overlay.dispatchEvent(new DragEvent('dragstart',{dataTransfer:data,ctrlKey:true,bubbles:true}));
+ check(data.getData('text/plain')===text,'exact selected SVG code transferred');check(data.getData('text/html').includes('&lt;svg'),'HTML preserves code as escaped text');
+ check(!data.getData('image/svg+xml')&&!data.getData('DownloadURL'),'code remains distinguishable from rendered SVG');
+ overlay.dispatchEvent(new DragEvent('dragend',{bubbles:true}));check(!document.querySelector('[title="Ctrl + drag to Filee"]'),'drag cleanup');
+ document.dispatchEvent(new MouseEvent('mousemove',{clientX:b.x+15,clientY:b.y+8,bubbles:true}));check(!document.querySelector('[title="Ctrl + drag to Filee"]'),'selection without Ctrl is unchanged');
+ selection.removeAllRanges();range.selectNodeContents(document.querySelector('#ordinary'));selection.addRange(range);const t=range.getBoundingClientRect();
+ document.dispatchEvent(new MouseEvent('mousemove',{clientX:t.x+10,clientY:t.y+5,ctrlKey:true,bubbles:true}));check(!document.querySelector('[title="Ctrl + drag to Filee"]'),'ordinary selected text does not activate');
+ }catch(e){results.push({error:e.message})}document.querySelector('#results').textContent=JSON.stringify(results,null,2);
+});
+</script>

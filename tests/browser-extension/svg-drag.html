@@ -1,0 +1,33 @@
+<!doctype html><meta charset="utf-8"><title>Filee SVG regression</title>
+<style>.home-traits__text{color:rgb(15,35,75)} .home-traits__icon{width:40px;height:40px} .home-traits__item{display:flex} #reference{color:rgb(170,20,60)} #reference .shape{fill:currentColor;stroke:rgb(0,100,0);stroke-width:2}</style><div class="home-traits__text"><svg width="40" height="40" viewBox="0 0 20 20"><path fill="currentColor" d="M1 1L19 1L19 19Z"/></svg><svg width="40" height="40" viewBox="0 0 20 20"><path fill="currentColor" d="M1 1L19 1L19 19Z"/></svg><svg width="40" height="40" viewBox="0 0 20 20"><path fill="currentColor" d="M1 1L19 1L19 19Z"/></svg></div><svg width="0" height="0"><defs><path id="shape-ref" d="M1 1L19 1L19 19Z"/></defs></svg>
+<svg id="reference" width="40" height="40" viewBox="0 0 20 20"><use class="shape" href="#shape-ref"/></svg>
+<script src="../../browser-extension/svg-drag.js"></script><pre id="results"></pre>
+<script>
+const results=[];
+function check(ok,name){results.push({name,pass:!!ok});if(!ok)throw Error(name)}
+try{
+ const svgs=[...document.querySelectorAll('.home-traits__text svg'),document.querySelector('#reference')];
+ for(const [i,svg] of svgs.entries()){
+  const b=svg.getBoundingClientRect();
+  document.dispatchEvent(new MouseEvent('mousemove',{clientX:b.x+b.width/2,clientY:b.y+b.height/2,ctrlKey:true,bubbles:true}));
+  const overlay=document.querySelector('img[title="Ctrl + drag to Filee"]');
+  check(overlay && overlay.draggable,'overlay '+i);
+  const data=new DataTransfer();
+  overlay.dispatchEvent(new DragEvent('dragstart',{dataTransfer:data,ctrlKey:true,bubbles:true}));
+  const text=data.getData('image/svg+xml');
+  const parsed=new DOMParser().parseFromString(text,'image/svg+xml');
+  check(!parsed.querySelector('parsererror'),'XML '+i);
+  check(parsed.querySelector('path[d]'),'actual path '+i);
+  check(text.includes(i===3?'rgb(170, 20, 60)':'rgb(15, 35, 75)'),'inherited color '+i);
+  if(i===3)check(parsed.querySelector('defs #shape-ref') && parsed.querySelector('use').getAttribute('href')==='#shape-ref','external sprite definition embedded');
+  check(data.getData('text/plain')===text && data.getData('text/html')===text,'drag formats agree '+i);
+  overlay.dispatchEvent(new DragEvent('dragend',{bubbles:true}));
+  check(!document.querySelector('img[title="Ctrl + drag to Filee"]'),'cleanup '+i);
+ }
+ const before=document.querySelectorAll('img').length;
+ document.dispatchEvent(new MouseEvent('mousemove',{clientX:20,clientY:20,bubbles:true}));
+ check(before===document.querySelectorAll('img').length,'normal browsing unchanged');
+}catch(e){results.push({error:e.message})}
+document.querySelector('#results').textContent=JSON.stringify(results,null,2);
+</script>
+

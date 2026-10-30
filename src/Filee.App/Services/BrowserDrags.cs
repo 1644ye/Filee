@@ -39,7 +39,8 @@ internal static class BrowserDrags
     public static bool MayOffer(IDataTransfer data) =>
         data.Formats.Any(f => f.Kind == DataFormatKind.Platform
                               && (BrowserDragFormats.FileGroupDescriptorW.Equals(f.Identifier, StringComparison.OrdinalIgnoreCase)
-                                  || BrowserDragContent.AddressFormatNames.Contains(f.Identifier, StringComparer.OrdinalIgnoreCase)));
+                                  || BrowserDragContent.AddressFormatNames.Contains(f.Identifier, StringComparer.OrdinalIgnoreCase)))
+            || Texts(data).Values.Any(value => BrowserDragFormats.VideoOnly(value) is not null);
 
     /// <summary>
     /// The files of a drag from a browser (or another app that holds them only in memory), standing as placeholders;
@@ -96,7 +97,7 @@ internal static class BrowserDrags
                 files.Add(WebDropItem.FromStream(entry.Name, _ => throw new IOException("The file's contents weren't handed over.")));
         }
 
-        if (files.Count == 0 && !hasAddress)
+        if (files.Count == 0 && !hasAddress && !texts.Values.Any(value => BrowserDragFormats.VideoOnly(value) is not null))
             return null;
         return new BrowserDragContent { Files = files, Texts = texts, Picture = Picture(data, texts) };
     }
