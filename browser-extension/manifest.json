@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Filee SVG Drag",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Hold Ctrl and drag website videos, pictures or inline SVG to Filee to download or convert them.",
   "permissions": ["scripting"],
   "host_permissions": ["https://*/*", "http://*/*"],

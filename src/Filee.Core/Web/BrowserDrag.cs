@@ -68,6 +68,9 @@ public static class BrowserDrag
 
         var picture = content.Picture is not null;
         var html = content.Text(BrowserDragFormats.Html) ?? content.Text(BrowserDragFormats.WindowsHtml) ?? content.Text(BrowserDragFormats.MacHtml);
+        if (BrowserDragFormats.VideoOnly(html) is { } videoUrl
+            && Address(videoUrl, image: false, null, mime: "video/mp4") is { } video)
+            return [video];
         if (BrowserDragFormats.ImageOnly(html) is { } src && Address(src, image: true, Base(content)) is { } image)
             return [image];
 

@@ -195,8 +195,8 @@
         event.dataTransfer.setData("text/html", standalone.outerHTML);
         // Chrome's DownloadURL creates a separate browser download/temporary file.
         // Filee owns this transfer; URI-list avoids a second, unfinished history entry.
-        event.dataTransfer.setData("text/uri-list", imageUrl);
-        event.dataTransfer.setData("text/plain", imageUrl);
+        if (!video) event.dataTransfer.setData("text/uri-list", imageUrl);
+        if (!video) event.dataTransfer.setData("text/plain", imageUrl);
       }
       event.dataTransfer.setDragImage(original, 0, 0);
     });

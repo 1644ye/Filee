@@ -55,6 +55,8 @@ internal static class BrowserDrags
         return data.Formats.Any(f => f.Kind == DataFormatKind.Platform
             && (BrowserDragFormats.FileGroupDescriptorW.Equals(f.Identifier, StringComparison.OrdinalIgnoreCase)
                 || BrowserDragContent.AddressFormatNames.Contains(f.Identifier, StringComparer.OrdinalIgnoreCase)))
+            || Texts(data).Where(pair => pair.Key == BrowserDragFormats.Html || pair.Key == BrowserDragFormats.WindowsHtml
+                || pair.Key == BrowserDragFormats.MacHtml).Any(pair => BrowserDragFormats.VideoOnly(pair.Value) is not null)
             || InlineSvg.ReadMany(new BrowserDragContent { Texts = Texts(data) }).Count > 0;
     }
 

@@ -212,6 +212,23 @@ public static partial class BrowserDragFormats
         return src.Length == 0 ? null : src;
     }
 
+    public static string? VideoOnly(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html) || html.Length > 1024 * 1024) return null;
+        var matches = VideoTag().Matches(html);
+        if (matches.Count != 1) return null;
+        var text = Tag().Replace(Comment().Replace(html, ""), "");
+        if (WebUtility.HtmlDecode(text).Any(c => !char.IsWhiteSpace(c))) return null;
+        var src = WebUtility.HtmlDecode(matches[0].Groups["src"].Value).Trim();
+        if (!Uri.TryCreate(src, UriKind.Absolute, out var uri) || !WebDownloader.IsWebAddress(uri)) return null;
+        if (uri.AbsolutePath.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase)
+            || uri.AbsolutePath.EndsWith(".mpd", StringComparison.OrdinalIgnoreCase)) return null;
+        return src;
+    }
+
+    [GeneratedRegex("""<video\b[^>]*?\bsrc\s*=\s*(?:"(?<src>[^"]*)"|'(?<src>[^']*)'|(?<src>[^\s>]+))""", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex VideoTag();
+
     private static List<string> Lines(string? text) =>
         string.IsNullOrEmpty(text)
             ? []
